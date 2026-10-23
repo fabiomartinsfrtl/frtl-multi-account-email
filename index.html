@@ -526,237 +526,25 @@
       localStorage.setItem('frtl_hub_users', JSON.stringify(appUsers));
     }
 
-    // Account Management (Add, Edit, Remove Accounts for Current User)
-    function handleSaveAccountSubmit(e) {
-      e.preventDefault();
-      const emailInput = document.getElementById('new-account-email');
-      const colorInput = document.getElementById('new-account-color');
-      const editingOldEmail = document.getElementById('editing-account-old-email').value;
-
-      const email = emailInput.value.trim();
-      const bgHex = colorInput.value;
-
-      if (!email) return;
-
-      if (editingOldEmail) {
-        // Mode: EDIT
-        const accIndex = accounts.findIndex(a => a.email.toLowerCase() === editingOldEmail.toLowerCase());
-        if (accIndex !== -1) {
-          // Update associated emails to reflect new address if changed
-          if (editingOldEmail.toLowerCase() !== email.toLowerCase()) {
-            emails.forEach(em => {
-              if (em.accountEmail.toLowerCase() === editingOldEmail.toLowerCase()) {
-                em.accountEmail = email;
-              }
-            });
-          }
-          accounts[accIndex] = { email, bgHex };
-          showToast(`Conta de e-mail atualizada com sucesso!`, 'success');
-        }
-      } else {
-        // Mode: ADD
-        if (accounts.some(a => a.email.toLowerCase() === email.toLowerCase())) {
-          showToast('Esta conta de e-mail já foi adicionada!', 'error');
-          return;
-        }
-        accounts.push({ email, bgHex });
-        showToast(`Conta ${email} adicionada com sucesso!`, 'success');
-        
-        // Fetch/Simulate new messages download for this inbox
-        downloadNewMessagesForAccount(email);
-      }
-
-      currentUser.accounts = accounts;
-
-      // Update in appUsers array and persist
-      const idx = appUsers.findIndex(u => u.id === currentUser.id);
-      if (idx !== -1) {
-        appUsers[idx] = currentUser;
-        saveUsers();
-      }
-
-      resetAccountForm();
-      renderAccountFilters();
-      populateComposeAccounts();
-      renderUserAccountsManagement();
-      renderEmailList();
-    }
-
-    function editAccount(accountEmail) {
-      const acc = accounts.find(a => a.email.toLowerCase() === accountEmail.toLowerCase());
-      if (!acc) return;
-
-      document.getElementById('new-account-email').value = acc.email;
-      document.getElementById('new-account-color').value = acc.bgHex || '#2563eb';
-      document.getElementById('editing-account-old-email').value = acc.email;
-
-      document.getElementById('account-form-title').innerText = 'Alterar Conta de E-mail';
-      document.getElementById('save-acc-btn').innerHTML = '<i class="fas fa-check"></i>';
-      document.getElementById('cancel-edit-acc-btn').classList.remove('hidden');
-    }
-
-    function resetAccountForm() {
-      document.getElementById('new-account-email').value = '';
-      document.getElementById('new-account-color').value = '#2563eb';
-      document.getElementById('editing-account-old-email').value = '';
-
-      document.getElementById('account-form-title').innerText = 'Adicionar Nova Conta';
-      document.getElementById('save-acc-btn').innerHTML = '<i class="fas fa-plus"></i>';
-      document.getElementById('cancel-edit-acc-btn').classList.add('hidden');
-    }
-
-    function removeAccount(accountEmail) {
-      if (!confirm(`Deseja remover a conta ${accountEmail} do aplicativo?`)) return;
-
-      accounts = accounts.filter(a => a.email.toLowerCase() !== accountEmail.toLowerCase());
-      currentUser.accounts = accounts;
-
-      const idx = appUsers.findIndex(u => u.id === currentUser.id);
-      if (idx !== -1) {
-        appUsers[idx] = currentUser;
-        saveUsers();
-      }
-
-      resetAccountForm();
-      renderAccountFilters();
-      populateComposeAccounts();
-      renderUserAccountsManagement();
-      renderEmailList();
-      showToast(`Conta ${accountEmail} removida.`, 'info');
-    }
-
-    function renderUserAccountsManagement() {
-      const container = document.getElementById('user-accounts-manage-list');
-      if (!container) return;
-
-      if (accounts.length === 0) {
-        container.innerHTML = `<div class="text-[11px] text-slate-400 p-2">Nenhuma conta de e-mail cadastrada. Clique acima para adicionar.</div>`;
-        return;
-      }
-
-      container.innerHTML = accounts.map(acc => `
-        <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 hover:border-slate-300 transition-all">
-          <div class="flex items-center space-x-2.5 truncate">
-            <span class="w-3.5 h-3.5 rounded-full flex-shrink-0" style="background-color: ${acc.bgHex}"></span>
-            <span class="text-xs font-semibold text-slate-800 truncate">${acc.email}</span>
-          </div>
-          <div class="flex items-center space-x-1">
-            <button onclick="editAccount('${acc.email}')" title="Alterar conta" class="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg text-xs">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button onclick="removeAccount('${acc.email}')" title="Excluir conta" class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs">
-              <i class="fas fa-trash-alt"></i>
-            </button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // Password Change Handler
-    function handleChangePasswordSubmit(e) {
-      e.preventDefault();
-      const currentPwd = document.getElementById('current-password-input').value;
-      const newPwd = document.getElementById('new-password-input').value;
-      const confirmPwd = document.getElementById('confirm-password-input').value;
-
-      if (currentPwd !== currentUser.password) {
-        showToast('A senha atual inserida está incorreta!', 'error');
-        return;
-      }
-
-      if (newPwd.length < 4) {
-        showToast('A nova senha deve ter no mínimo 4 caracteres.', 'error');
-        return;
-      }
-
-      if (newPwd !== confirmPwd) {
-        showToast('A confirmação da nova senha não confere!', 'error');
-        return;
-      }
-
-      currentUser.password = newPwd;
-
-      const idx = appUsers.findIndex(u => u.id === currentUser.id);
-      if (idx !== -1) {
-        appUsers[idx] = currentUser;
-        saveUsers();
-      }
-
-      document.getElementById('current-password-input').value = '';
-      document.getElementById('new-password-input').value = '';
-      document.getElementById('confirm-password-input').value = '';
-
-      toggleModal('profileSettingsModal');
-      showToast('Senha alterada com sucesso!', 'success');
-    }
-
-    // Sync / Automatic Download Simulation (preserves Google Gmail copies)
-    function downloadNewMessagesForAccount(accEmail) {
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      const newMails = [
-        {
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          accountEmail: accEmail,
-          senderName: "Equipe Google Security",
-          senderEmail: "no-reply@accounts.google.com",
-          subject: "Novo acesso detectado em " + accEmail,
-          body: "Sua conta do Gmail foi conectada com sucesso ao FRTL Email Hub. Uma cópia de todas as mensagens continuará salva intacta no servidor do Google Gmail.",
-          date: timeStr,
-          folder: "inbox",
-          priority: "high",
-          isRead: false
-        },
-        {
-          id: Date.now() + Math.floor(Math.random() * 2000) + 10,
-          accountEmail: accEmail,
-          senderName: "Contato Comercial",
-          senderEmail: "cliente@empresa.com.br",
-          subject: "Solicitação de Proposta Comercial - " + accEmail,
-          body: "Olá, gostaria de receber maiores informações sobre os serviços oferecidos. Aguardo retorno.\n\nAtenciosamente,\nCliente",
-          date: timeStr,
-          folder: "inbox",
-          priority: "normal",
-          isRead: false
-        }
-      ];
-
-      emails.unshift(...newMails);
-    }
-
-    function syncAllEmails() {
-      const icon = document.getElementById('sync-icon');
-      if (icon) icon.classList.add('fa-spin');
-
-      if (!accounts || accounts.length === 0) {
-        if (icon) icon.classList.remove('fa-spin');
-        showToast("Nenhuma conta cadastrada! Adicione uma conta em 'Gerenciar'.", 'error');
-        return;
-      }
-
-      setTimeout(() => {
-        accounts.forEach(acc => {
-          downloadNewMessagesForAccount(acc.email);
-        });
-
-        if (icon) icon.classList.remove('fa-spin');
-        renderEmailList();
-        showToast(`E-mails baixados com sucesso para ${accounts.length} caixa(s)! Cópias mantidas no Google.`, 'success');
-      }, 1000);
-    }
-
-    // Toast Utility
+    // Toast Notification System
     function showToast(message, type = 'info') {
       const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      
-      let bg = 'bg-slate-800 text-white';
-      if (type === 'success') bg = 'bg-emerald-600 text-white';
-      if (type === 'error') bg = 'bg-rose-600 text-white';
+      if (!container) return;
 
-      toast.className = `${bg} px-4 py-2.5 rounded-xl shadow-lg text-xs font-medium transition-all pointer-events-auto transform translate-y-2 opacity-0`;
-      toast.innerText = message;
+      const toast = document.createElement('div');
+      let bgColor = 'bg-slate-800 text-white';
+      let icon = 'fa-info-circle';
+
+      if (type === 'success') {
+        bgColor = 'bg-emerald-600 text-white';
+        icon = 'fa-check-circle';
+      } else if (type === 'error') {
+        bgColor = 'bg-rose-600 text-white';
+        icon = 'fa-exclamation-circle';
+      }
+
+      toast.className = `pointer-events-auto flex items-center space-x-2 px-4 py-3 rounded-xl shadow-xl text-xs font-semibold ${bgColor} transition-all duration-300 transform translate-y-2 opacity-0`;
+      toast.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
 
       container.appendChild(toast);
 
@@ -765,12 +553,12 @@
       }, 10);
 
       setTimeout(() => {
-        toast.classList.add('opacity-0');
+        toast.classList.add('opacity-0', 'translate-y-2');
         setTimeout(() => toast.remove(), 300);
       }, 3500);
     }
 
-    // UI Tab Switcher
+    // Auth Screen Tab Switcher
     function switchAuthTab(tab) {
       const loginForm = document.getElementById('form-login');
       const signupForm = document.getElementById('form-signup');
@@ -790,64 +578,287 @@
       }
     }
 
-    // Auth Handlers
+    // Auth Submission Handlers
     function handleLoginSubmit(e) {
       e.preventDefault();
-      const email = document.getElementById('login-email').value.trim();
-      const pwd = document.getElementById('login-password').value.trim();
+      const email = document.getElementById('login-email').value.trim().toLowerCase();
+      const password = document.getElementById('login-password').value.trim();
 
-      const user = appUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const user = appUsers.find(u => u.email.toLowerCase() === email);
 
-      if (!user || user.password !== pwd) {
-        showToast('E-mail ou senha incorretos!', 'error');
+      if (!user) {
+        showToast('Usuário não encontrado! Crie uma conta no formulário ao lado.', 'error');
+        return;
+      }
+
+      if (user.password !== password) {
+        showToast('Senha incorreta! Tente novamente.', 'error');
         return;
       }
 
       if (user.isBlocked) {
-        showToast('Esta conta de usuário foi bloqueada pelo Administrador.', 'error');
+        showToast('Sua conta foi temporariamente bloqueada. Entre em contato com o suporte.', 'error');
         return;
       }
 
       loginUser(user);
+      showToast(`Bem-vindo de volta, ${user.name}!`, 'success');
     }
 
     function handleSignUpSubmit(e) {
       e.preventDefault();
       const name = document.getElementById('signup-name').value.trim();
-      const email = document.getElementById('signup-email').value.trim();
-      const pwd = document.getElementById('signup-password').value.trim();
-      const initAcc = document.getElementById('signup-initial-email').value.trim();
+      const email = document.getElementById('signup-email').value.trim().toLowerCase();
+      const password = document.getElementById('signup-password').value.trim();
+      const initialEmail = document.getElementById('signup-initial-email').value.trim().toLowerCase();
 
-      const existing = appUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (existing) {
-        showToast('Este e-mail já está cadastrado!', 'error');
+      if (appUsers.some(u => u.email.toLowerCase() === email)) {
+        showToast('Este e-mail de login já está cadastrado!', 'error');
         return;
       }
 
       const now = new Date();
-      const expDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7-day trial
+      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // +7 days
 
-      const isAdminUser = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      const isAdmin = email === ADMIN_EMAIL;
 
       const newUser = {
-        id: 'u_' + Date.now(),
-        name: name,
-        email: email,
-        password: pwd,
-        isAdmin: isAdminUser,
+        id: 'usr_' + Date.now(),
+        name,
+        email,
+        password,
         createdAt: now.toISOString(),
-        expiresAt: expDate.toISOString(),
-        status: isAdminUser ? 'Assinante Ativo' : 'Em Degustação',
-        isNew: true,
+        expiresAt: expiresAt.toISOString(),
+        status: 'Em Degustação',
+        isAdmin,
         isBlocked: false,
-        accounts: initAcc ? [{ email: initAcc, bgHex: '#2563eb' }] : [{ email: email, bgHex: '#2563eb' }]
+        accounts: [{ email: initialEmail, bgHex: '#2563eb' }]
       };
 
       appUsers.push(newUser);
       saveUsers();
 
-      showToast('Conta cadastrada com sucesso! 7 dias grátis ativados.', 'success');
       loginUser(newUser);
+      showToast('Conta criada com sucesso! 7 dias de degustação iniciados.', 'success');
+    }
+
+    function handleChangePasswordSubmit(e) {
+      e.preventDefault();
+      const currentPassword = document.getElementById('current-password-input').value.trim();
+      const newPassword = document.getElementById('new-password-input').value.trim();
+      const confirmPassword = document.getElementById('confirm-password-input').value.trim();
+
+      if (!currentUser) return;
+
+      if (currentUser.password !== currentPassword) {
+        showToast('Senha atual incorreta!', 'error');
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        showToast('A nova senha e a confirmação não coincidem!', 'error');
+        return;
+      }
+
+      currentUser.password = newPassword;
+      const idx = appUsers.findIndex(u => u.id === currentUser.id);
+      if (idx !== -1) {
+        appUsers[idx] = currentUser;
+        saveUsers();
+      }
+
+      document.getElementById('current-password-input').value = '';
+      document.getElementById('new-password-input').value = '';
+      document.getElementById('confirm-password-input').value = '';
+
+      toggleModal('profileSettingsModal');
+      showToast('Senha alterada com sucesso!', 'success');
+    }
+
+    function downloadNewMessagesForAccount(accountEmail) {
+      const sampleSenders = [
+        { name: 'Suporte Google', email: 'no-reply@accounts.google.com' },
+        { name: 'FRTL Notificações', email: 'notificacoes@frtl.com.br' },
+        { name: 'Atendimento Cliente', email: 'contato@cliente.com' }
+      ];
+
+      const sampleSubjects = [
+        'Confirmação de Segurança na sua Conta',
+        'Relatório Quinzenal de Atividades FRTL',
+        'Solicitação de Orçamento e Dúvidas sobre Serviços'
+      ];
+
+      const sender = sampleSenders[Math.floor(Math.random() * sampleSenders.length)];
+      const subject = sampleSubjects[Math.floor(Math.random() * sampleSubjects.length)];
+
+      const newMail = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        accountEmail: accountEmail,
+        senderName: sender.name,
+        senderEmail: sender.email,
+        subject: subject,
+        body: `Olá,\n\nEsta é uma mensagem recebida na sua caixa de entrada (${accountEmail}).\n\nAtenciosamente,\n${sender.name}`,
+        date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        folder: 'inbox',
+        priority: Math.random() > 0.5 ? 'high' : 'normal',
+        isRead: false
+      };
+
+      emails.unshift(newMail);
+    }
+
+    function resetAccountForm() {
+      const emailInput = document.getElementById('new-account-email');
+      const colorInput = document.getElementById('new-account-color');
+      const oldEmailInput = document.getElementById('editing-account-old-email');
+      const title = document.getElementById('account-form-title');
+      const cancelBtn = document.getElementById('cancel-edit-acc-btn');
+
+      if (emailInput) emailInput.value = '';
+      if (colorInput) colorInput.value = '#2563eb';
+      if (oldEmailInput) oldEmailInput.value = '';
+      if (title) title.innerText = 'Adicionar Nova Conta';
+      if (cancelBtn) cancelBtn.classList.add('hidden');
+    }
+
+    function editAccount(accountEmail) {
+      const acc = accounts.find(a => a && a.email && a.email.toLowerCase() === accountEmail.toLowerCase());
+      if (!acc) return;
+
+      document.getElementById('new-account-email').value = acc.email;
+      document.getElementById('new-account-color').value = acc.bgHex || '#2563eb';
+      document.getElementById('editing-account-old-email').value = acc.email;
+
+      document.getElementById('account-form-title').innerText = 'Editar Conta de E-mail';
+      document.getElementById('cancel-edit-acc-btn').classList.remove('hidden');
+    }
+
+    // Account Management (Add, Edit, Remove Accounts for Current User)
+    function handleSaveAccountSubmit(e) {
+      e.preventDefault();
+      const emailInput = document.getElementById('new-account-email');
+      const colorInput = document.getElementById('new-account-color');
+      const editingOldEmail = document.getElementById('editing-account-old-email').value;
+
+      const email = emailInput.value ? emailInput.value.trim() : '';
+      const bgHex = colorInput ? colorInput.value : '#2563eb';
+
+      if (!email) return;
+
+      // Garantir que accounts seja um array válido e limpo
+      if (!Array.isArray(accounts)) accounts = [];
+      accounts = accounts.filter(a => a && a.email && a.email !== 'undefined');
+
+      if (editingOldEmail) {
+        // Mode: EDIT
+        const accIndex = accounts.findIndex(a => a && a.email && a.email.toLowerCase() === editingOldEmail.toLowerCase());
+        if (accIndex !== -1) {
+          if (editingOldEmail.toLowerCase() !== email.toLowerCase()) {
+            emails.forEach(em => {
+              if (em.accountEmail && em.accountEmail.toLowerCase() === editingOldEmail.toLowerCase()) {
+                em.accountEmail = email;
+              }
+            });
+          }
+          accounts[accIndex] = { email, bgHex };
+          showToast(`Conta de e-mail atualizada com sucesso!`, 'success');
+        }
+      } else {
+        // Mode: ADD
+        if (accounts.some(a => a && a.email && a.email.toLowerCase() === email.toLowerCase())) {
+          showToast('Esta conta de e-mail já foi adicionada!', 'error');
+          return;
+        }
+        accounts.push({ email, bgHex });
+        showToast(`Conta ${email} adicionada com sucesso!`, 'success');
+        
+        downloadNewMessagesForAccount(email);
+      }
+
+      if (currentUser) {
+        currentUser.accounts = accounts;
+        const idx = appUsers.findIndex(u => u.id === currentUser.id);
+        if (idx !== -1) {
+          appUsers[idx] = currentUser;
+          saveUsers();
+        }
+      }
+
+      resetAccountForm();
+      renderAccountFilters();
+      populateComposeAccounts();
+      renderUserAccountsManagement();
+      renderEmailList();
+    }
+
+    function removeAccount(accountEmail) {
+      // Tratar caso de itens corrompidos/undefined
+      if (!accountEmail || accountEmail === 'undefined') {
+        accounts = (accounts || []).filter(a => a && a.email && a.email !== 'undefined');
+        if (currentUser) {
+          currentUser.accounts = accounts;
+          const idx = appUsers.findIndex(u => u.id === currentUser.id);
+          if (idx !== -1) {
+            appUsers[idx] = currentUser;
+            saveUsers();
+          }
+        }
+        renderAccountFilters();
+        populateComposeAccounts();
+        renderUserAccountsManagement();
+        renderEmailList();
+        showToast(`Itens inválidos removidos.`, 'info');
+        return;
+      }
+
+      if (!confirm(`Deseja remover a conta ${accountEmail} do aplicativo?`)) return;
+
+      accounts = (accounts || []).filter(a => a && a.email && a.email.toLowerCase() !== accountEmail.toLowerCase());
+      if (currentUser) {
+        currentUser.accounts = accounts;
+        const idx = appUsers.findIndex(u => u.id === currentUser.id);
+        if (idx !== -1) {
+          appUsers[idx] = currentUser;
+          saveUsers();
+        }
+      }
+
+      resetAccountForm();
+      renderAccountFilters();
+      populateComposeAccounts();
+      renderUserAccountsManagement();
+      renderEmailList();
+      showToast(`Conta ${accountEmail} removida.`, 'info');
+    }
+
+    function renderUserAccountsManagement() {
+      const container = document.getElementById('user-accounts-manage-list');
+      if (!container) return;
+
+      // Limpa dados ausentes/inválidos
+      accounts = (accounts || []).filter(a => a && a.email && a.email !== 'undefined');
+
+      if (accounts.length === 0) {
+        container.innerHTML = `<div class="text-[11px] text-slate-400 p-2">Nenhuma conta de e-mail cadastrada. Digite o e-mail acima e clique no botão + para adicionar.</div>`;
+        return;
+      }
+
+      container.innerHTML = accounts.map(acc => `
+        <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 hover:border-slate-300 transition-all">
+          <div class="flex items-center space-x-2.5 truncate">
+            <span class="w-3.5 h-3.5 rounded-full flex-shrink-0" style="background-color: ${acc.bgHex || '#2563eb'}"></span>
+            <span class="text-xs font-semibold text-slate-800 truncate">${acc.email}</span>
+          </div>
+          <div class="flex items-center space-x-1">
+            <button type="button" onclick="editAccount('${acc.email}')" title="Alterar conta" class="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg text-xs">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button type="button" onclick="removeAccount('${acc.email}')" title="Excluir conta" class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
     }
 
     function loginUser(user) {
@@ -856,20 +867,37 @@
       
       document.getElementById('logged-user-name').innerText = user.name;
       document.getElementById('logged-user-role').innerText = user.isAdmin ? 'Admin FRTL' : 'Usuário';
-      document.getElementById('user-avatar-text').innerText = user.name.charAt(0).toUpperCase();
+      document.getElementById('user-avatar-text').innerText = user.name ? user.name.charAt(0).toUpperCase() : 'U';
 
       // Toggle Admin Panel Button Visibility
       const adminBtn = document.getElementById('admin-panel-btn');
-      if (user.isAdmin || user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+      if (user.isAdmin || (user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase())) {
         adminBtn.classList.remove('hidden');
       } else {
         adminBtn.classList.add('hidden');
       }
 
-      // Load user accounts
-      accounts = user.accounts || [];
-      emails = []; // Fresh Inbox for current user session
+      // Carrega as contas do usuário limpando eventuais registros undefined
+      accounts = (user.accounts || []).filter(a => a && a.email && a.email !== 'undefined');
       
+      // Se não houver contas e houver e-mail de cadastro, vincula como conta principal inicial
+      if (accounts.length === 0 && user.email) {
+        accounts = [{ email: user.email, bgHex: '#2563eb' }];
+        user.accounts = accounts;
+        const idx = appUsers.findIndex(u => u.id === user.id);
+        if (idx !== -1) {
+          appUsers[idx] = user;
+          saveUsers();
+        }
+      }
+
+      emails = []; // Inicia nova caixa de mensagens limpa para a sessão
+      
+      // Baixa e-mails iniciais para as contas ativas
+      accounts.forEach(acc => {
+        downloadNewMessagesForAccount(acc.email);
+      });
+
       renderAccountFilters();
       renderEmailList();
       populateComposeAccounts();
