@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FRTL - Gerenciador de E-mails Multi-Contas</title>
-  
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome -->
@@ -61,7 +60,7 @@
         <form id="form-login" onsubmit="handleLoginSubmit(event)" class="space-y-3">
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">E-mail de Login</label>
-            <input type="email" id="login-email" required placeholder="fabiomartinsfrt@gmail.com" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+            <input type="email" id="login-email" required placeholder="seuemail@exemplo.com" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Senha</label>
@@ -87,7 +86,7 @@
             <input type="password" id="signup-password" required placeholder="Crie uma senha de acesso" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Conta de E-mail Principal a Conectar</label>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Primeira Conta de E-mail a Conectar</label>
             <input type="email" id="signup-initial-email" required placeholder="seuemail@gmail.com" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
           </div>
           <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2">
@@ -124,7 +123,12 @@
 
         <!-- Account Filter List -->
         <div>
-          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-2">Contas Conectadas</div>
+          <div class="flex items-center justify-between px-2 mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contas Conectadas</span>
+            <button onclick="toggleModal('manageAccountsModal')" class="text-[10px] text-blue-600 font-bold hover:underline">
+              <i class="fas fa-cog"></i> Gerenciar
+            </button>
+          </div>
           <div id="account-filters-list" class="space-y-1">
             <!-- Dynamic Accounts Injected -->
           </div>
@@ -165,18 +169,21 @@
 
       <!-- Bottom Profile & Settings Footer -->
       <div class="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-        <div class="flex items-center space-x-2 truncate">
+        <div class="flex items-center space-x-2 truncate cursor-pointer" onclick="toggleModal('profileSettingsModal')" title="Clique para alterar senha">
           <div class="w-8 h-8 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold text-xs">
-            <span id="user-avatar-text">F</span>
+            <span id="user-avatar-text">U</span>
           </div>
           <div class="truncate">
-            <div id="logged-user-name" class="text-xs font-bold text-slate-800 truncate">Fábio Martins</div>
-            <div id="logged-user-role" class="text-[10px] text-slate-400 truncate">Admin FRTL</div>
+            <div id="logged-user-name" class="text-xs font-bold text-slate-800 truncate">Usuário</div>
+            <div id="logged-user-role" class="text-[10px] text-slate-400 truncate">Conta</div>
           </div>
         </div>
 
         <div class="flex items-center gap-1">
-          <button id="admin-panel-btn" onclick="toggleModal('adminModal')" title="Painel Admin Licenciamento" class="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded-lg text-xs">
+          <button onclick="toggleModal('profileSettingsModal')" title="Alterar Senha de Acesso" class="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded-lg text-xs">
+            <i class="fas fa-key"></i>
+          </button>
+          <button id="admin-panel-btn" onclick="toggleModal('adminModal')" title="Painel Admin Licenciamento" class="hidden p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded-lg text-xs">
             <i class="fas fa-user-shield"></i>
           </button>
           <button onclick="logout()" title="Sair" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-slate-200 rounded-lg text-xs">
@@ -197,7 +204,7 @@
         <div class="flex items-center justify-between text-xs text-slate-500 px-1">
           <span id="list-status">Exibindo todas as contas</span>
           <button onclick="syncAllEmails()" class="hover:text-blue-600 font-medium flex items-center gap-1 text-[11px]">
-            <i id="sync-icon" class="fa-solid fa-arrows-rotate"></i> Sincronizar
+            <i id="sync-icon" class="fa-solid fa-arrows-rotate"></i> Baixar E-mails
           </button>
         </div>
       </div>
@@ -288,17 +295,87 @@
     </main>
   </div>
 
+  <!-- ACCOUNTS MANAGEMENT MODAL -->
+  <div id="manageAccountsModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-100">
+      <div class="flex justify-between items-center pb-4 border-b border-slate-100 mb-4">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <i class="fas fa-at text-blue-600"></i> Gerenciar Minhas Contas de E-mail
+        </h3>
+        <button onclick="toggleModal('manageAccountsModal')" class="text-slate-400 hover:text-slate-600">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Form to add or edit email account -->
+      <form onsubmit="handleSaveAccountSubmit(event)" class="space-y-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+        <div class="flex justify-between items-center">
+          <div id="account-form-title" class="text-xs font-bold text-slate-700">Adicionar Nova Conta</div>
+          <button type="button" id="cancel-edit-acc-btn" onclick="resetAccountForm()" class="hidden text-[10px] text-slate-500 hover:underline">Cancelar Edição</button>
+        </div>
+        <input type="hidden" id="editing-account-old-email" value="">
+        <div class="flex gap-2">
+          <input type="email" id="new-account-email" required placeholder="exemplo@gmail.com" class="flex-1 text-xs p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+          <input type="color" id="new-account-color" value="#2563eb" title="Escolha a cor da conta" class="w-10 h-9 p-1 bg-white border border-slate-200 rounded-xl cursor-pointer">
+          <button type="submit" id="save-acc-btn" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all">
+            <i class="fas fa-plus"></i>
+          </button>
+        </div>
+        <p class="text-[10px] text-slate-400">Suporta Google Gmail, Outlook, Yahoo e caixas personalizadas. Os e-mails são mantidos intactos na sua caixa oficial do Gmail.</p>
+      </form>
+
+      <!-- Account List -->
+      <div class="text-xs font-bold text-slate-700 mb-2">Contas Conectadas no App</div>
+      <div id="user-accounts-manage-list" class="space-y-2 max-h-60 overflow-y-auto scroll-custom pr-1">
+        <!-- Dynamic list -->
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE & PASSWORD CHANGE MODAL -->
+  <div id="profileSettingsModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100">
+      <div class="flex justify-between items-center pb-4 border-b border-slate-100 mb-4">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <i class="fas fa-key text-blue-600"></i> Alterar Senha de Acesso
+        </h3>
+        <button onclick="toggleModal('profileSettingsModal')" class="text-slate-400 hover:text-slate-600">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleChangePasswordSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Senha Atual</label>
+          <input type="password" id="current-password-input" required placeholder="Digite sua senha atual" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Nova Senha</label>
+          <input type="password" id="new-password-input" required placeholder="Digite a nova senha" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Confirme a Nova Senha</label>
+          <input type="password" id="confirm-password-input" required placeholder="Repita a nova senha" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+          <i class="fas fa-save"></i> Salvar Nova Senha
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- ADMIN MODAL -->
   <div id="adminModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto border border-sky-100">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto border border-sky-100">
       <div class="flex justify-between items-center pb-4 border-b border-slate-100 mb-6">
         <div class="flex items-center gap-3">
           <div class="p-2 bg-sky-100 text-sky-700 rounded-xl">
             <i class="fas fa-user-shield text-xl"></i>
           </div>
           <div>
-            <h3 class="text-lg font-bold text-slate-800">Painel de Administração - Licenciamento & Usuários</h3>
-            <p class="text-xs text-slate-500">Gestão de contas, renovação de créditos de 30 dias e status de degustação</p>
+            <h3 class="text-lg font-bold text-slate-800">Painel de Administração FRTL</h3>
+            <p class="text-xs text-slate-500">Gestão de usuários, controle de validade e gerenciamento de acessos</p>
           </div>
         </div>
         <button onclick="toggleModal('adminModal')" class="text-slate-400 hover:text-slate-600 transition-colors text-lg">
@@ -312,11 +389,11 @@
           <p id="adminStatTotalUsers" class="text-2xl font-bold text-sky-900 mt-1">0</p>
         </div>
         <div class="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
-          <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Assinantes Ativos</span>
+          <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Ativos / Assinantes</span>
           <p id="adminStatActiveUsers" class="text-2xl font-bold text-emerald-900 mt-1">0</p>
         </div>
         <div class="p-4 bg-amber-50 border border-amber-100 rounded-2xl">
-          <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Em Degustação / Novos</span>
+          <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Em Degustação (7 dias)</span>
           <p id="adminStatTrialUsers" class="text-2xl font-bold text-amber-900 mt-1">0</p>
         </div>
       </div>
@@ -325,10 +402,11 @@
         <table class="w-full text-xs text-left text-slate-600">
           <thead class="text-[11px] text-slate-700 uppercase bg-slate-50 border-b border-slate-200">
             <tr>
-              <th class="px-4 py-3">Usuário / Email Login</th>
-              <th class="px-4 py-3">Status / Validade</th>
-              <th class="px-4 py-3">Contas de Email</th>
-              <th class="px-4 py-3 text-right">Ação (Liberar Créditos)</th>
+              <th class="px-4 py-3">Usuário</th>
+              <th class="px-4 py-3">Data de Cadastro</th>
+              <th class="px-4 py-3">Validade (7d / Licença)</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3 text-right">Ações Admin</th>
             </tr>
           </thead>
           <tbody id="adminUsersTableBody" class="divide-y divide-slate-100">
@@ -338,9 +416,9 @@
       </div>
 
       <div class="mt-6 flex justify-between items-center text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-200">
-        <span><i class="fas fa-info-circle text-sky-600 mr-1"></i> Usuários cadastrados recebem 7 dias grátis por padrão.</span>
+        <span><i class="fas fa-info-circle text-sky-600 mr-1"></i> Acesso Restrito: Exclusivo para fabiomartinsfrt@gmail.com</span>
         <button id="adminRefreshBtn" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg transition-colors">
-          <i class="fas fa-sync-alt mr-1"></i> Atualizar Lista
+          <i class="fas fa-sync-alt mr-1"></i> Atualizar
         </button>
       </div>
     </div>
@@ -439,71 +517,227 @@
     let currentFolder = 'inbox';
     let currentEmailId = null;
 
-    // Accounts preset for Fábio Martins
-    const defaultFabioAccounts = [
-      { id: 'acc_1', email: 'fabiomartisnfrt@gmail.com', bgHex: '#1e40af', connected: true },
-      { id: 'acc_2', email: 'fabiomartinscobos@gmail.com', bgHex: '#0284c7', connected: true },
-      { id: 'acc_3', email: 'fabiomartinscobos@gmail.com', bgHex: '#0d9488', connected: true }
-    ];
+    const ADMIN_EMAIL = 'fabiomartinsfrt@gmail.com';
 
-    // Mock Inbox Items
-    const initialEmails = [
-      {
-        id: 1,
-        accountEmail: 'fabiomartisnfrt@gmail.com',
-        senderName: 'Consultoria Financeira',
-        senderEmail: 'financeiro@cliente.com.br',
-        subject: 'Aprovação do Contrato Anual FRTL',
-        date: '10:45',
-        folder: 'inbox',
-        priority: 'high',
-        isRead: false,
-        body: 'Prezado Fábio,\n\nConfirmamos o recebimento da proposta enviada pela FRTL Consultoria. A diretoria aprovou os termos do contrato anual.\n\nFicamos no aguardo da minuta final para assinatura.\n\nAtenciosamente,\nEquipe de Finanças'
-      },
-      {
-        id: 2,
-        accountEmail: 'fabiomartinscobos@gmail.com',
-        senderName: 'Google Cloud Platform',
-        senderEmail: 'no-reply@cloud.google.com',
-        subject: 'Relatório Mensal de Consumo API Gemini',
-        date: 'Ontem',
-        folder: 'inbox',
-        priority: 'normal',
-        isRead: true,
-        body: 'Olá Fábio,\n\nSeu consumo da Gemini API para o projeto FRTL Email Hub no mês vigente está dentro da cota de uso gratuito.\n\nNenhuma ação é necessária.'
-      },
-      {
-        id: 3,
-        accountEmail: 'fabiomartisnfrt@gmail.com',
-        senderName: 'Oferta Especial',
-        senderEmail: 'promo@spammkt.com',
-        subject: 'Ganhe 50% de desconto em licenças de software',
-        date: '12 de Out',
-        folder: 'spam',
-        priority: 'low',
-        isRead: true,
-        body: 'Confira as melhores ofertas de software do mês! Clique no link abaixo para resgatar o cupom.'
-      }
-    ];
-
-    // Local Users Management
-    let appUsers = JSON.parse(localStorage.getItem('frtl_hub_users')) || [
-      {
-        id: 'u_fabio',
-        name: 'Fábio Martins',
-        email: 'fabiomartinsfrt@gmail.com',
-        password: 'admin',
-        isAdmin: true,
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-        status: 'Assinante Ativo',
-        isNew: false,
-        accounts: ['fabiomartisnfrt@gmail.com', 'fabiomartinscobos@gmail.com']
-      }
-    ];
+    // Local Storage for Users
+    let appUsers = JSON.parse(localStorage.getItem('frtl_hub_users')) || [];
 
     function saveUsers() {
       localStorage.setItem('frtl_hub_users', JSON.stringify(appUsers));
+    }
+
+    // Account Management (Add, Edit, Remove Accounts for Current User)
+    function handleSaveAccountSubmit(e) {
+      e.preventDefault();
+      const emailInput = document.getElementById('new-account-email');
+      const colorInput = document.getElementById('new-account-color');
+      const editingOldEmail = document.getElementById('editing-account-old-email').value;
+
+      const email = emailInput.value.trim();
+      const bgHex = colorInput.value;
+
+      if (!email) return;
+
+      if (editingOldEmail) {
+        // Mode: EDIT
+        const accIndex = accounts.findIndex(a => a.email.toLowerCase() === editingOldEmail.toLowerCase());
+        if (accIndex !== -1) {
+          // Update associated emails to reflect new address if changed
+          if (editingOldEmail.toLowerCase() !== email.toLowerCase()) {
+            emails.forEach(em => {
+              if (em.accountEmail.toLowerCase() === editingOldEmail.toLowerCase()) {
+                em.accountEmail = email;
+              }
+            });
+          }
+          accounts[accIndex] = { email, bgHex };
+          showToast(`Conta de e-mail atualizada com sucesso!`, 'success');
+        }
+      } else {
+        // Mode: ADD
+        if (accounts.some(a => a.email.toLowerCase() === email.toLowerCase())) {
+          showToast('Esta conta de e-mail já foi adicionada!', 'error');
+          return;
+        }
+        accounts.push({ email, bgHex });
+        showToast(`Conta ${email} adicionada com sucesso!`, 'success');
+        
+        // Fetch/Simulate new messages download for this inbox
+        downloadNewMessagesForAccount(email);
+      }
+
+      currentUser.accounts = accounts;
+
+      // Update in appUsers array and persist
+      const idx = appUsers.findIndex(u => u.id === currentUser.id);
+      if (idx !== -1) {
+        appUsers[idx] = currentUser;
+        saveUsers();
+      }
+
+      resetAccountForm();
+      renderAccountFilters();
+      populateComposeAccounts();
+      renderUserAccountsManagement();
+      renderEmailList();
+    }
+
+    function editAccount(accountEmail) {
+      const acc = accounts.find(a => a.email.toLowerCase() === accountEmail.toLowerCase());
+      if (!acc) return;
+
+      document.getElementById('new-account-email').value = acc.email;
+      document.getElementById('new-account-color').value = acc.bgHex || '#2563eb';
+      document.getElementById('editing-account-old-email').value = acc.email;
+
+      document.getElementById('account-form-title').innerText = 'Alterar Conta de E-mail';
+      document.getElementById('save-acc-btn').innerHTML = '<i class="fas fa-check"></i>';
+      document.getElementById('cancel-edit-acc-btn').classList.remove('hidden');
+    }
+
+    function resetAccountForm() {
+      document.getElementById('new-account-email').value = '';
+      document.getElementById('new-account-color').value = '#2563eb';
+      document.getElementById('editing-account-old-email').value = '';
+
+      document.getElementById('account-form-title').innerText = 'Adicionar Nova Conta';
+      document.getElementById('save-acc-btn').innerHTML = '<i class="fas fa-plus"></i>';
+      document.getElementById('cancel-edit-acc-btn').classList.add('hidden');
+    }
+
+    function removeAccount(accountEmail) {
+      if (!confirm(`Deseja remover a conta ${accountEmail} do aplicativo?`)) return;
+
+      accounts = accounts.filter(a => a.email.toLowerCase() !== accountEmail.toLowerCase());
+      currentUser.accounts = accounts;
+
+      const idx = appUsers.findIndex(u => u.id === currentUser.id);
+      if (idx !== -1) {
+        appUsers[idx] = currentUser;
+        saveUsers();
+      }
+
+      resetAccountForm();
+      renderAccountFilters();
+      populateComposeAccounts();
+      renderUserAccountsManagement();
+      renderEmailList();
+      showToast(`Conta ${accountEmail} removida.`, 'info');
+    }
+
+    function renderUserAccountsManagement() {
+      const container = document.getElementById('user-accounts-manage-list');
+      if (!container) return;
+
+      if (accounts.length === 0) {
+        container.innerHTML = `<div class="text-[11px] text-slate-400 p-2">Nenhuma conta de e-mail cadastrada. Clique acima para adicionar.</div>`;
+        return;
+      }
+
+      container.innerHTML = accounts.map(acc => `
+        <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 hover:border-slate-300 transition-all">
+          <div class="flex items-center space-x-2.5 truncate">
+            <span class="w-3.5 h-3.5 rounded-full flex-shrink-0" style="background-color: ${acc.bgHex}"></span>
+            <span class="text-xs font-semibold text-slate-800 truncate">${acc.email}</span>
+          </div>
+          <div class="flex items-center space-x-1">
+            <button onclick="editAccount('${acc.email}')" title="Alterar conta" class="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg text-xs">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button onclick="removeAccount('${acc.email}')" title="Excluir conta" class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Password Change Handler
+    function handleChangePasswordSubmit(e) {
+      e.preventDefault();
+      const currentPwd = document.getElementById('current-password-input').value;
+      const newPwd = document.getElementById('new-password-input').value;
+      const confirmPwd = document.getElementById('confirm-password-input').value;
+
+      if (currentPwd !== currentUser.password) {
+        showToast('A senha atual inserida está incorreta!', 'error');
+        return;
+      }
+
+      if (newPwd.length < 4) {
+        showToast('A nova senha deve ter no mínimo 4 caracteres.', 'error');
+        return;
+      }
+
+      if (newPwd !== confirmPwd) {
+        showToast('A confirmação da nova senha não confere!', 'error');
+        return;
+      }
+
+      currentUser.password = newPwd;
+
+      const idx = appUsers.findIndex(u => u.id === currentUser.id);
+      if (idx !== -1) {
+        appUsers[idx] = currentUser;
+        saveUsers();
+      }
+
+      document.getElementById('current-password-input').value = '';
+      document.getElementById('new-password-input').value = '';
+      document.getElementById('confirm-password-input').value = '';
+
+      toggleModal('profileSettingsModal');
+      showToast('Senha alterada com sucesso!', 'success');
+    }
+
+    // Sync / Automatic Download Simulation (preserves Google Gmail copies)
+    function downloadNewMessagesForAccount(accEmail) {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const newMails = [
+        {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          accountEmail: accEmail,
+          senderName: "Equipe Google Security",
+          senderEmail: "no-reply@accounts.google.com",
+          subject: "Novo acesso detectado em " + accEmail,
+          body: "Sua conta do Gmail foi conectada com sucesso ao FRTL Email Hub. Uma cópia de todas as mensagens continuará salva no Google Gmail.",
+          date: timeStr,
+          folder: "inbox",
+          priority: "high",
+          isRead: false
+        },
+        {
+          id: Date.now() + Math.floor(Math.random() * 2000) + 10,
+          accountEmail: accEmail,
+          senderName: "Contato / Cliente",
+          senderEmail: "cliente@empresa.com.br",
+          subject: "Solicitação de Proposta Comercial - " + accEmail,
+          body: "Olá, gostaria de receber maiores informações sobre os serviços oferecidos. Aguardo retorno.\n\nAtenciosamente,\nCliente",
+          date: timeStr,
+          folder: "inbox",
+          priority: "normal",
+          isRead: false
+        }
+      ];
+
+      emails.unshift(...newMails);
+    }
+
+    function syncAllEmails() {
+      const icon = document.getElementById('sync-icon');
+      icon.classList.add('fa-spin');
+
+      setTimeout(() => {
+        accounts.forEach(acc => {
+          downloadNewMessagesForAccount(acc.email);
+        });
+
+        icon.classList.remove('fa-spin');
+        renderEmailList();
+        showToast("Todas as mensagens baixadas! Cópias mantidas no Google Gmail.", 'success');
+      }, 1200);
     }
 
     // Toast Utility
@@ -563,6 +797,11 @@
         return;
       }
 
+      if (user.isBlocked) {
+        showToast('Esta conta de usuário foi bloqueada pelo Administrador.', 'error');
+        return;
+      }
+
       loginUser(user);
     }
 
@@ -575,30 +814,33 @@
 
       const existing = appUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
       if (existing) {
-        showToast('Este e-mail já está cadastrado no sistema!', 'error');
+        showToast('Este e-mail já está cadastrado!', 'error');
         return;
       }
 
       const now = new Date();
-      const expDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const expDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7-day trial
+
+      const isAdminUser = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
       const newUser = {
         id: 'u_' + Date.now(),
         name: name,
         email: email,
         password: pwd,
-        isAdmin: false,
+        isAdmin: isAdminUser,
         createdAt: now.toISOString(),
         expiresAt: expDate.toISOString(),
-        status: 'Em Degustação',
+        status: isAdminUser ? 'Assinante Ativo' : 'Em Degustação',
         isNew: true,
-        accounts: initAcc ? [initAcc] : [email]
+        isBlocked: false,
+        accounts: initAcc ? [{ email: initAcc, bgHex: '#2563eb' }] : [{ email: email, bgHex: '#2563eb' }]
       };
 
       appUsers.push(newUser);
       saveUsers();
 
-      showToast('Conta cadastrada! Você ativou 7 dias de testes grátis.', 'success');
+      showToast('Conta cadastrada com sucesso! 7 dias grátis ativados.', 'success');
       loginUser(newUser);
     }
 
@@ -610,27 +852,29 @@
       document.getElementById('logged-user-role').innerText = user.isAdmin ? 'Admin FRTL' : 'Usuário';
       document.getElementById('user-avatar-text').innerText = user.name.charAt(0).toUpperCase();
 
-      // Setup Accounts
-      if (user.isAdmin) {
-        accounts = defaultFabioAccounts;
+      // Toggle Admin Panel Button Visibility
+      const adminBtn = document.getElementById('admin-panel-btn');
+      if (user.isAdmin || user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        adminBtn.classList.remove('hidden');
       } else {
-        accounts = user.accounts.map((accEmail, idx) => ({
-          id: 'acc_user_' + idx,
-          email: accEmail,
-          bgHex: idx % 2 === 0 ? '#1e40af' : '#0d9488',
-          connected: true
-        }));
+        adminBtn.classList.add('hidden');
       }
 
-      emails = [...initialEmails];
+      // Load user accounts
+      accounts = user.accounts || [];
+      emails = []; // Fresh Inbox for current user session
+      
       renderAccountFilters();
       renderEmailList();
       populateComposeAccounts();
+      renderUserAccountsManagement();
       checkAndShowSubscriptionNotice(user);
     }
 
     function checkUserSubscriptionStatus(user) {
-      if (user.isAdmin) return { expired: false, daysLeft: 999 };
+      if (user.isAdmin || user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        return { expired: false, daysLeft: 999 };
+      }
 
       const now = new Date();
       const exp = new Date(user.expiresAt);
@@ -657,6 +901,78 @@
         `;
         subModal.classList.remove('hidden');
       }
+    }
+
+    // Account Management (Add, Edit, Remove Accounts for Current User)
+    function handleAddAccountSubmit(e) {
+      e.preventDefault();
+      const emailInput = document.getElementById('new-account-email');
+      const colorInput = document.getElementById('new-account-color');
+
+      const email = emailInput.value.trim();
+      const bgHex = colorInput.value;
+
+      if (!email) return;
+
+      if (accounts.some(a => a.email.toLowerCase() === email.toLowerCase())) {
+        showToast('Esta conta já está adicionada!', 'error');
+        return;
+      }
+
+      accounts.push({ email, bgHex });
+      currentUser.accounts = accounts;
+
+      // Update in appUsers array and persist
+      const idx = appUsers.findIndex(u => u.id === currentUser.id);
+      if (idx !== -1) {
+        appUsers[idx] = currentUser;
+        saveUsers();
+      }
+
+      emailInput.value = '';
+      renderAccountFilters();
+      populateComposeAccounts();
+      renderUserAccountsManagement();
+      showToast(`Conta ${email} adicionada com sucesso!`, 'success');
+    }
+
+    function removeAccount(accountEmail) {
+      accounts = accounts.filter(a => a.email !== accountEmail);
+      currentUser.accounts = accounts;
+
+      const idx = appUsers.findIndex(u => u.id === currentUser.id);
+      if (idx !== -1) {
+        appUsers[idx] = currentUser;
+        saveUsers();
+      }
+
+      renderAccountFilters();
+      populateComposeAccounts();
+      renderUserAccountsManagement();
+      renderEmailList();
+      showToast(`Conta ${accountEmail} removida.`, 'info');
+    }
+
+    function renderUserAccountsManagement() {
+      const container = document.getElementById('user-accounts-manage-list');
+      if (!container) return;
+
+      if (accounts.length === 0) {
+        container.innerHTML = `<div class="text-[11px] text-slate-400 p-2">Nenhuma conta de e-mail cadastrada.</div>`;
+        return;
+      }
+
+      container.innerHTML = accounts.map(acc => `
+        <div class="flex items-center justify-between p-2 bg-slate-50 rounded-xl border border-slate-200">
+          <div class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full" style="background-color: ${acc.bgHex}"></span>
+            <span class="text-xs font-semibold text-slate-800">${acc.email}</span>
+          </div>
+          <button onclick="removeAccount('${acc.email}')" class="text-rose-500 hover:text-rose-700 text-xs px-2 py-1">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+      `).join('');
     }
 
     // Render Filters and Lists
@@ -893,7 +1209,9 @@
       appUsers.forEach(u => {
         const sub = checkUserSubscriptionStatus(u);
         
-        if (sub.expired) {
+        if (u.isBlocked) {
+          u.status = 'Bloqueado';
+        } else if (sub.expired) {
           u.status = 'Expirado';
         } else if (!u.isAdmin && u.status !== 'Assinante Ativo') {
           u.status = 'Em Degustação';
@@ -906,35 +1224,41 @@
         tr.className = 'hover:bg-slate-50 border-b border-slate-100 text-xs';
 
         let statusBadge = '';
-        if (u.isNew) {
-          statusBadge += `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-sky-500 text-white animate-pulse mr-1">NOVO</span>`;
+        if (u.isBlocked) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-rose-100 text-rose-700">Bloqueado</span>`;
+        } else if (sub.expired) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Expirado</span>`;
+        } else if (u.isAdmin) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">Admin</span>`;
+        } else if (u.status === 'Assinante Ativo') {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700">Ativo (${sub.daysLeft}d)</span>`;
+        } else {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">Degustação (${sub.daysLeft}d)</span>`;
         }
 
-        if (sub.expired) {
-          statusBadge += `<span class="px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Expirado</span>`;
-        } else if (u.isAdmin) {
-          statusBadge += `<span class="px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">Admin</span>`;
-        } else if (u.status === 'Assinante Ativo') {
-          statusBadge += `<span class="px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700">Ativo (${sub.daysLeft}d)</span>`;
-        } else {
-          statusBadge += `<span class="px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">Degustação (${sub.daysLeft}d)</span>`;
-        }
+        const formattedCreated = new Date(u.createdAt).toLocaleDateString('pt-BR');
+        const formattedExp = new Date(u.expiresAt).toLocaleDateString('pt-BR');
 
         tr.innerHTML = `
           <td class="px-4 py-3 font-medium text-slate-800">
             <div class="font-bold text-slate-900">${u.name}</div>
             <div class="text-slate-400 text-[10px]">${u.email}</div>
           </td>
+          <td class="px-4 py-3 text-slate-600">${formattedCreated}</td>
+          <td class="px-4 py-3 text-slate-600">${formattedExp}</td>
           <td class="px-4 py-3">${statusBadge}</td>
-          <td class="px-4 py-3">
-            <div class="max-w-[150px] truncate text-slate-500 text-[11px]">
-              ${u.accounts ? u.accounts.join(', ') : 'Nenhuma'}
-            </div>
-          </td>
           <td class="px-4 py-3 text-right">
-            <button onclick="grantUserDays('${u.id}', 30)" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-[11px] shadow-sm transition-all inline-flex items-center gap-1">
-              <i class="fas fa-plus-circle"></i> +30 Dias
-            </button>
+            <div class="flex items-center justify-end gap-1">
+              <button onclick="grantUserDays('${u.id}', 30)" title="Liberar +30 dias" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-[10px] transition-all">
+                +30 Dias
+              </button>
+              <button onclick="toggleBlockUser('${u.id}')" title="${u.isBlocked ? 'Desbloquear' : 'Bloquear'}" class="px-2 py-1 ${u.isBlocked ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-600 hover:bg-slate-700'} text-white rounded-lg font-medium text-[10px] transition-all">
+                ${u.isBlocked ? 'Desbloquear' : 'Bloquear'}
+              </button>
+              <button onclick="deleteUserAccount('${u.id}')" title="Excluir Usuário" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium text-[10px] transition-all">
+                Excluir
+              </button>
+            </div>
           </td>
         `;
 
@@ -962,6 +1286,28 @@
       saveUsers();
       renderAdminUserTable();
       showToast(`Liberado +${days} dias para ${user.name}! Validado até: ${newExp.toLocaleDateString('pt-BR')}`, 'success');
+    }
+
+    function toggleBlockUser(userId) {
+      const user = appUsers.find(u => u.id === userId);
+      if (!user) return;
+
+      user.isBlocked = !user.isBlocked;
+      saveUsers();
+      renderAdminUserTable();
+      showToast(`Usuário ${user.name} foi ${user.isBlocked ? 'bloqueado' : 'desbloqueado'}.`, user.isBlocked ? 'error' : 'success');
+    }
+
+    function deleteUserAccount(userId) {
+      const user = appUsers.find(u => u.id === userId);
+      if (!user) return;
+
+      if (confirm(`Tem certeza que deseja excluir permanentemente o usuário ${user.name}?`)) {
+        appUsers = appUsers.filter(u => u.id !== userId);
+        saveUsers();
+        renderAdminUserTable();
+        showToast('Usuário excluído do sistema.', 'info');
+      }
     }
 
     function logout() {
