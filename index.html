@@ -203,7 +203,7 @@
         </div>
         <div class="flex items-center justify-between text-xs text-slate-500 px-1">
           <span id="list-status">Exibindo todas as contas</span>
-          <button onclick="syncAllEmails()" class="hover:text-blue-600 font-medium flex items-center gap-1 text-[11px]">
+          <button onclick="syncAllEmails()" class="hover:text-blue-600 font-medium flex items-center gap-1 text-[11px] bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg border border-blue-200 transition-all hover:bg-blue-100">
             <i id="sync-icon" class="fa-solid fa-arrows-rotate"></i> Baixar E-mails
           </button>
         </div>
@@ -702,7 +702,7 @@
           senderName: "Equipe Google Security",
           senderEmail: "no-reply@accounts.google.com",
           subject: "Novo acesso detectado em " + accEmail,
-          body: "Sua conta do Gmail foi conectada com sucesso ao FRTL Email Hub. Uma cópia de todas as mensagens continuará salva no Google Gmail.",
+          body: "Sua conta do Gmail foi conectada com sucesso ao FRTL Email Hub. Uma cópia de todas as mensagens continuará salva intacta no servidor do Google Gmail.",
           date: timeStr,
           folder: "inbox",
           priority: "high",
@@ -711,7 +711,7 @@
         {
           id: Date.now() + Math.floor(Math.random() * 2000) + 10,
           accountEmail: accEmail,
-          senderName: "Contato / Cliente",
+          senderName: "Contato Comercial",
           senderEmail: "cliente@empresa.com.br",
           subject: "Solicitação de Proposta Comercial - " + accEmail,
           body: "Olá, gostaria de receber maiores informações sobre os serviços oferecidos. Aguardo retorno.\n\nAtenciosamente,\nCliente",
@@ -727,17 +727,23 @@
 
     function syncAllEmails() {
       const icon = document.getElementById('sync-icon');
-      icon.classList.add('fa-spin');
+      if (icon) icon.classList.add('fa-spin');
+
+      if (!accounts || accounts.length === 0) {
+        if (icon) icon.classList.remove('fa-spin');
+        showToast("Nenhuma conta cadastrada! Adicione uma conta em 'Gerenciar'.", 'error');
+        return;
+      }
 
       setTimeout(() => {
         accounts.forEach(acc => {
           downloadNewMessagesForAccount(acc.email);
         });
 
-        icon.classList.remove('fa-spin');
+        if (icon) icon.classList.remove('fa-spin');
         renderEmailList();
-        showToast("Todas as mensagens baixadas! Cópias mantidas no Google Gmail.", 'success');
-      }, 1200);
+        showToast(`E-mails baixados com sucesso para ${accounts.length} caixa(s)! Cópias mantidas no Google.`, 'success');
+      }, 1000);
     }
 
     // Toast Utility
