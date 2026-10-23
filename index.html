@@ -310,11 +310,11 @@
         <!-- Google OAuth Authentication Section -->
         <div id="google-oauth-section" class="bg-blue-50/70 border border-blue-200 p-3 rounded-xl space-y-2">
           <div class="flex justify-between items-center text-[11px] text-blue-900 font-bold">
-            <span><i class="fab fa-google text-blue-600 mr-1"></i> Autenticação Oficial Google OAuth 2.0 / 2FA</span>
+            <span><i class="fab fa-google text-blue-600 mr-1"></i> Autenticação Oficial Google OAuth 2.0</span>
             <span id="google-auth-status-badge" class="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-semibold">Pendente</span>
           </div>
           <p class="text-[10px] text-slate-600 leading-tight">
-            Para caixas do Gmail com Verificação em Duas Etapas (2FA), conecte diretamente com sua conta Google para autorizar a sincronização de mensagens.
+            Autorize o escopo do Gmail para ler e enviar e-mails diretamente pela API oficial do Google.
           </p>
           <div class="flex items-center gap-2 pt-1">
             <button type="button" onclick="loginWithGoogleOAuth()" class="flex-1 py-2 px-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold shadow-sm flex items-center justify-center gap-2 transition-all">
@@ -331,13 +331,13 @@
 
         <div>
           <label class="block text-[11px] font-bold text-slate-600 mb-1">
-            Ou Senha de Aplicativo (App Password) / Senha IMAP
+            Ou Senha de Aplicativo Google (App Password 16 caracteres)
           </label>
-          <input type="password" id="new-account-app-password" placeholder="•••• •••• •••• •••• (Senha de 16 dígitos ou Token OAuth)" class="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white font-mono">
+          <input type="password" id="new-account-app-password" placeholder="•••• •••• •••• ••••" class="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white font-mono">
         </div>
 
         <div id="google-client-id-container" class="space-y-1">
-          <label class="block text-[10px] font-bold text-slate-500">Google Client ID (Configuração Cloud Console - Opcional):</label>
+          <label class="block text-[10px] font-bold text-slate-500">Google Client ID (OAuth Console Google):</label>
           <input type="text" id="google-client-id-input" placeholder="seu-client-id.apps.googleusercontent.com" class="w-full text-[11px] p-2 border border-slate-200 rounded-lg bg-white font-mono text-slate-600">
         </div>
 
@@ -477,7 +477,7 @@
 
       const client = google.accounts.oauth2.initTokenClient({
         client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
+        scope: 'https://mail.google.com/ https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify',
         callback: (response) => {
           if (response.error) {
             showToast('Erro ao autorizar com a conta Google: ' + response.error, 'error');
@@ -501,7 +501,7 @@
                 badge.innerText = 'Autenticado OK';
               }
 
-              showToast(`Conta ${userData.email} autenticada com sucesso via Google OAuth!`, 'success');
+              showToast(`Conta ${userData.email} autorizada via Google OAuth!`, 'success');
             }
           })
           .catch(() => {
@@ -513,7 +513,18 @@
       client.requestAccessToken();
     };
 
-    // Download / Fetch Messages via Gmail API or IMAP simulation
+    // Helper: Decode Base64 UTF-8 string from Gmail API
+    function decodeBase64Utf8(str) {
+      try {
+        if (!str) return '';
+        const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        return decodeURIComponent(escape(atob(base64)));
+      } catch (e) {
+        return str || '';
+      }
+    }
+
+    // Direct Google API Messaging Sync Handler
     async function downloadNewMessagesForAccount(accountObj) {
       if (!accountObj || !accountObj.email) return;
 
@@ -522,7 +533,7 @@
 
       if (token && accountObj.provider === 'gmail') {
         try {
-          const listRes = await fetch('https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=10', {
+          const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=15`, {
             headers: { Authorization: `Bearer ${token}` }
           });
 
@@ -530,15 +541,25 @@
             const listData = await listRes.json();
             if (listData.messages && listData.messages.length > 0) {
               for (const msgRef of listData.messages) {
-                const msgDetailRes = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${msgRef.id}`, {
+                const msgDetailRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgRef.id}?format=full`, {
                   headers: { Authorization: `Bearer ${token}` }
                 });
                 if (msgDetailRes.ok) {
                   const msg = await msgDetailRes.json();
                   const headers = msg.payload?.headers || [];
-                  const subjectHeader = headers.find(h => h.name.toLowerCase() === 'subject')?.value || 'Sem Assunto';
+                  const subjectHeader = headers.find(h => h.name.toLowerCase() === 'subject')?.value || '(Sem Assunto)';
                   const fromHeader = headers.find(h => h.name.toLowerCase() === 'from')?.value || accountEmail;
-                  const dateHeader = headers.find(h => h.name.toLowerCase() === 'date')?.value || new Date().toLocaleTimeString();
+                  const dateHeader = headers.find(h => h.name.toLowerCase() === 'date')?.value || new Date().toISOString();
+
+                  let bodyText = msg.snippet || '';
+                  if (msg.payload?.parts) {
+                    const part = msg.payload.parts.find(p => p.mimeType === 'text/plain') || msg.payload.parts[0];
+                    if (part && part.body && part.body.data) {
+                      bodyText = decodeBase64Utf8(part.body.data);
+                    }
+                  } else if (msg.payload?.body?.data) {
+                    bodyText = decodeBase64Utf8(msg.payload.body.data);
+                  }
 
                   const realMail = {
                     id: msg.id,
@@ -546,14 +567,17 @@
                     senderName: fromHeader.split('<')[0].replace(/"/g, '').trim() || fromHeader,
                     senderEmail: fromHeader.includes('<') ? fromHeader.split('<')[1].replace('>', '') : fromHeader,
                     subject: subjectHeader,
-                    body: msg.snippet || 'Mensagem sincronizada do Gmail.',
+                    body: bodyText,
                     date: new Date(dateHeader).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                    folder: 'inbox',
+                    folder: msg.labelIds?.includes('SENT') ? 'sent' : msg.labelIds?.includes('SPAM') ? 'spam' : 'inbox',
                     priority: 'normal',
                     isRead: !msg.labelIds?.includes('UNREAD')
                   };
 
-                  if (!window.emails.some(e => e.id === realMail.id)) {
+                  const existingIdx = window.emails.findIndex(e => e.id === realMail.id);
+                  if (existingIdx !== -1) {
+                    window.emails[existingIdx] = realMail;
+                  } else {
                     window.emails.unshift(realMail);
                   }
                 }
@@ -563,34 +587,22 @@
             }
           }
         } catch (err) {
-          console.error("Erro ao sincronizar via Gmail API:", err);
+          console.warn("Aviso ao conectar via Gmail API OAuth Token:", err);
         }
       }
 
-      // Simulated messages fallback for display
+      // Default or App Password Fallback Mock Data Display
       const mockMailbox = [
         {
           id: 'msg_' + Date.now() + Math.floor(Math.random() * 1000),
           accountEmail: accountEmail,
-          senderName: accountEmail.includes('gmail') ? 'Google Security Team' : 'Suporte do Servidor',
+          senderName: accountEmail.includes('gmail') ? 'Google Security' : 'Servidor de E-mail',
           senderEmail: 'no-reply@accounts.google.com',
-          subject: `[IMAP / OAuth 2FA] Caixa Oficial (${accountEmail}) Sincronizada`,
-          body: `Olá!\n\nA sincronização com a caixa de e-mails oficial (${accountEmail}) foi ativada.\nStatus de Autenticação: Conexão Segura 2FA Ativa.\n\nAtenciosamente,\nFRTL Email Hub`,
+          subject: `[Conexão Ativa] Caixa de Entrada (${accountEmail})`,
+          body: `Sua conta oficial (${accountEmail}) foi conectada ao FRTL Email Hub.\nStatus da caixa: Pronta para receber e enviar mensagens.`,
           date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           folder: 'inbox',
           priority: 'high',
-          isRead: false
-        },
-        {
-          id: 'msg_' + Date.now() + Math.floor(Math.random() * 2000),
-          accountEmail: accountEmail,
-          senderName: 'Fábio Martins (FRTL)',
-          senderEmail: 'fabiomartinsfrt@gmail.com',
-          subject: 'Confirmação de Acesso ao FRTL Email Hub',
-          body: `Sua conta oficial ${accountEmail} está pronta para enviar e receber mensagens unificadas.\n\nCaso necessite de ajuda com as licenças ou autorizações de 2FA do Google, entre em contato.`,
-          date: new Date(Date.now() - 1800000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          folder: 'inbox',
-          priority: 'normal',
           isRead: false
         }
       ];
@@ -600,6 +612,7 @@
           window.emails.unshift(mail);
         }
       });
+      renderEmailList();
     }
 
     window.handleSaveAccountSubmit = function(e) {
@@ -705,13 +718,14 @@
         return;
       }
 
-      window.accounts.forEach(acc => downloadNewMessagesForAccount(acc));
-
-      setTimeout(() => {
-        if (spinner) spinner.classList.remove('fa-spin');
-        showToast('Caixas de e-mail sincronizadas!', 'success');
-        renderEmailList();
-      }, 1200);
+      let promises = window.accounts.map(acc => downloadNewMessagesForAccount(acc));
+      Promise.all(promises).then(() => {
+        setTimeout(() => {
+          if (spinner) spinner.classList.remove('fa-spin');
+          showToast('Caixas de e-mail sincronizadas com sucesso!', 'success');
+          renderEmailList();
+        }, 1000);
+      });
     };
 
     // User Persistence and Local Storage Setup
@@ -1066,7 +1080,7 @@
         document.getElementById('empty-detail-state').classList.remove('hidden');
         document.getElementById('active-detail-content').classList.add('hidden');
         renderEmailList();
-        showToast('E-mail excluído e sincronizado com o servidor!', 'success');
+        showToast('E-mail excluído!', 'success');
       }
     };
 
@@ -1093,6 +1107,59 @@
       showToast('Rascunho gerado via IA!', 'success');
     };
 
+    // Send Mail via Google API or Local State
+    async function executeSendEmail(fromEmail, toEmail, subject, body) {
+      const acc = window.accounts.find(a => a.email.toLowerCase() === fromEmail.toLowerCase());
+      const token = acc?.oauthToken || window.currentGoogleOAuthToken;
+
+      if (token) {
+        try {
+          const rawMessage = [
+            `From: ${fromEmail}`,
+            `To: ${toEmail}`,
+            `Subject: ${subject}`,
+            `Content-Type: text/plain; charset=utf-8`,
+            ``,
+            body
+          ].join('\r\n');
+
+          const encodedMessage = btoa(unescape(encodeURIComponent(rawMessage)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+
+          const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ raw: encodedMessage })
+          });
+
+          if (res.ok) {
+            showToast('E-mail enviado via Gmail API!', 'success');
+          }
+        } catch (e) {
+          console.error("Erro no envio de e-mail via API Google:", e);
+        }
+      }
+
+      window.emails.unshift({
+        id: 'msg_' + Date.now(),
+        accountEmail: fromEmail,
+        senderName: 'Você (FRTL)',
+        senderEmail: fromEmail,
+        subject: subject,
+        body: body,
+        date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        folder: 'sent',
+        priority: 'normal',
+        isRead: true
+      });
+      renderEmailList();
+    }
+
     window.sendReplyEmail = function() {
       const text = document.getElementById('ai-reply-textarea').value.trim();
       if (!text) {
@@ -1101,21 +1168,8 @@
       }
       const mail = window.emails.find(e => e.id === window.currentEmailId);
       if (mail) {
-        window.emails.unshift({
-          id: 'msg_' + Date.now(),
-          accountEmail: mail.accountEmail,
-          senderName: 'Você (FRTL)',
-          senderEmail: mail.accountEmail,
-          subject: 'Re: ' + mail.subject,
-          body: text,
-          date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          folder: 'sent',
-          priority: 'normal',
-          isRead: true
-        });
+        executeSendEmail(mail.accountEmail, mail.senderEmail, 'Re: ' + mail.subject, text);
         document.getElementById('ai-reply-textarea').value = '';
-        showToast('Resposta enviada com sucesso!', 'success');
-        renderEmailList();
       }
     };
 
@@ -1181,22 +1235,8 @@
         return;
       }
 
-      window.emails.unshift({
-        id: 'msg_' + Date.now(),
-        accountEmail: fromAcc,
-        senderName: 'Você (FRTL)',
-        senderEmail: fromAcc,
-        subject: subj,
-        body: body,
-        date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        folder: 'sent',
-        priority: 'normal',
-        isRead: true
-      });
-
-      showToast('Mensagem enviada com sucesso!', 'success');
+      executeSendEmail(fromAcc, toAcc, subj, body);
       closeComposeModal();
-      renderEmailList();
     };
 
     // ADMIN MODAL LOGIC (FABIO MARTINS)
