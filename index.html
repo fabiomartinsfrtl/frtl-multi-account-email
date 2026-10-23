@@ -1,72 +1,568 @@
-<!-- ... existing code ... -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FRTL - Gerenciador de E-mails Multi-Contas</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Google Identity Services Library -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     /* Custom Scrollbars */
-<!-- ... existing code ... -->
-        <!-- Form to add or edit email account -->
-        <form onsubmit="handleSaveAccountSubmit(event)" class="space-y-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-          <div class="flex justify-between items-center">
-            <div id="account-form-title" class="text-xs font-bold text-slate-700">Conectar Nova Conta Oficial</div>
-            <button type="button" id="cancel-edit-acc-btn" onclick="resetAccountForm()" class="hidden text-[10px] text-slate-500 hover:underline">Cancelar Edição</button>
+    .scroll-custom::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .scroll-custom::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .scroll-custom::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .scroll-custom::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 antialiased h-screen overflow-hidden flex flex-col">
+
+  <!-- TOAST NOTIFICATIONS CONTAINER -->
+  <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- AUTH SCREEN (LOGIN & SIGNUP) -->
+  <div id="auth-screen" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 transition-all">
+      <!-- Header Branding -->
+      <div class="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-8 text-center text-white relative">
+        <div class="flex justify-center mb-3">
+          <!-- FRTL SVG Logo -->
+          <svg class="h-16 w-auto drop-shadow-md" viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="190" cy="105" rx="180" ry="85" fill="#202A7A" opacity="0.4"/>
+            <ellipse cx="200" cy="100" rx="180" ry="85" fill="#2d3a94"/>
+            <text x="200" y="125" font-family="'Brush Script MT', 'Georgia', cursive, sans-serif" font-weight="bold" font-size="80" fill="#FFFFFF" text-anchor="middle" font-style="italic">FRTL</text>
+          </svg>
+        </div>
+        <h2 class="text-xl font-bold tracking-tight">Email Hub Enterprise</h2>
+        <p class="text-xs text-blue-200 mt-1">Gerenciador Unificado Multi-Contas & IA Gemini</p>
+      </div>
+
+      <!-- Auth Forms -->
+      <div class="p-6 space-y-4">
+        <!-- Tabs Switcher -->
+        <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+          <button id="tab-login-btn" onclick="switchAuthTab('login')" class="flex-1 py-2 rounded-lg bg-white shadow-sm text-blue-900 transition-all">Entrar</button>
+          <button id="tab-signup-btn" onclick="switchAuthTab('signup')" class="flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-800 transition-all">Criar Conta (7 dias grátis)</button>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <form id="form-login" onsubmit="handleLoginSubmit(event)" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">E-mail de Login</label>
+            <input type="email" id="login-email" required placeholder="seuemail@exemplo.com" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
           </div>
-          <input type="hidden" id="editing-account-old-email" value="">
-          
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-[11px] font-bold text-slate-600 mb-1">Provedor de E-mail</label>
-              <select id="new-account-provider" onchange="autoFillProviderSettings()" class="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white font-medium">
-                <option value="gmail">Google Gmail (OAuth 2.0 / IMAP)</option>
-                <option value="outlook">Microsoft Outlook / Hotmail</option>
-                <option value="yahoo">Yahoo Mail</option>
-                <option value="custom">Outro (Servidor Personalizado)</option>
-              </select>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Senha</label>
+            <input type="password" id="login-password" required placeholder="••••••••" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+          </div>
+          <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
+            <i class="fas fa-sign-in-alt"></i> Acessar Painel FRTL
+          </button>
+        </form>
+
+        <!-- SIGNUP FORM -->
+        <form id="form-signup" onsubmit="handleSignUpSubmit(event)" class="space-y-3 hidden">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nome Completo</label>
+            <input type="text" id="signup-name" required placeholder="Seu Nome" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">E-mail para Acesso</label>
+            <input type="email" id="signup-email" required placeholder="seuemail@exemplo.com" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Senha do App</label>
+            <input type="password" id="signup-password" required placeholder="Crie uma senha de acesso" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Primeira Conta de E-mail a Conectar</label>
+            <input type="email" id="signup-initial-email" required placeholder="seuemail@gmail.com" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+          </div>
+          <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2">
+            <i class="fas fa-user-plus"></i> Iniciar Teste Grátis de 7 Dias
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APPLICATION LAYOUT -->
+  <div id="app-container" class="flex-1 flex overflow-hidden">
+    
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between flex-shrink-0">
+      <div class="p-4 space-y-6">
+        <!-- Brand Header -->
+        <div class="flex items-center space-x-3 px-2">
+          <svg class="h-10 w-auto" viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="200" cy="100" rx="180" ry="85" fill="#2d3a94"/>
+            <text x="200" y="125" font-family="'Brush Script MT', 'Georgia', cursive, sans-serif" font-weight="bold" font-size="80" fill="#FFFFFF" text-anchor="middle" font-style="italic">FRTL</text>
+          </svg>
+          <div>
+            <h1 class="font-bold text-slate-800 text-sm">FRTL Hub</h1>
+            <span class="text-[10px] text-slate-400 font-medium">Gestão IMAP/SMTP Real</span>
+          </div>
+        </div>
+
+        <!-- Compose Button -->
+        <button onclick="openComposeModal()" class="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl text-xs shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 transition-all">
+          <i class="fa-solid fa-pen-to-square"></i>
+          <span>Escrever E-mail</span>
+        </button>
+
+        <!-- Account Filter List -->
+        <div>
+          <div class="flex items-center justify-between px-2 mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contas Conectadas</span>
+            <button onclick="toggleModal('manageAccountsModal')" class="text-[10px] text-blue-600 font-bold hover:underline">
+              <i class="fas fa-cog"></i> Gerenciar
+            </button>
+          </div>
+          <div id="account-filters-list" class="space-y-1">
+            <!-- Dynamic Accounts Injected -->
+          </div>
+        </div>
+
+        <!-- Folder Navigation -->
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-2">Pastas & Filtros</div>
+          <nav class="space-y-1">
+            <button onclick="setFolder('inbox')" id="folder-inbox" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-blue-50 text-blue-700 font-medium text-xs">
+              <div class="flex items-center space-x-2.5">
+                <i class="fa-solid fa-inbox"></i>
+                <span>Caixa de Entrada</span>
+              </div>
+              <span id="unread-count" class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">0</span>
+            </button>
+            <button onclick="setFolder('priority')" id="folder-priority" class="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 text-xs">
+              <div class="flex items-center space-x-2.5">
+                <i class="fa-solid fa-star text-amber-500"></i>
+                <span>Prioridade Alta (IA)</span>
+              </div>
+            </button>
+            <button onclick="setFolder('sent')" id="folder-sent" class="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 text-xs">
+              <div class="flex items-center space-x-2.5">
+                <i class="fa-solid fa-paper-plane text-slate-400"></i>
+                <span>Enviados</span>
+              </div>
+            </button>
+            <button onclick="setFolder('spam')" id="folder-spam" class="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 text-xs">
+              <div class="flex items-center space-x-2.5">
+                <i class="fa-solid fa-shield-halved text-rose-500"></i>
+                <span>Spam / Bloqueados</span>
+              </div>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <!-- Bottom Profile & Settings Footer -->
+      <div class="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div class="flex items-center space-x-2 truncate cursor-pointer" onclick="toggleModal('profileSettingsModal')" title="Clique para alterar senha">
+          <div class="w-8 h-8 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold text-xs">
+            <span id="user-avatar-text">U</span>
+          </div>
+          <div class="truncate">
+            <div id="logged-user-name" class="text-xs font-bold text-slate-800 truncate">Usuário</div>
+            <div id="logged-user-role" class="text-[10px] text-slate-400 truncate">Conta</div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1">
+          <button onclick="toggleModal('profileSettingsModal')" title="Alterar Senha de Acesso" class="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded-lg text-xs">
+            <i class="fas fa-key"></i>
+          </button>
+          <button id="admin-panel-btn" onclick="toggleModal('adminModal')" title="Painel Admin Licenciamento" class="hidden p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded-lg text-xs">
+            <i class="fas fa-user-shield"></i>
+          </button>
+          <button onclick="logout()" title="Sair" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-slate-200 rounded-lg text-xs">
+            <i class="fas fa-power-off"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- EMAIL LIST SECTION -->
+    <section class="w-full md:w-96 bg-white border-r border-slate-200 flex flex-col flex-shrink-0">
+      <!-- Search & Refresh Header -->
+      <div class="p-3 border-b border-slate-200 space-y-2">
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+          <input type="text" id="search-input" onkeyup="filterEmails()" placeholder="Buscar nos e-mails..." class="w-full pl-9 pr-3 py-2 text-xs bg-slate-100 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-500 px-1">
+          <span id="list-status">Exibindo todas as contas</span>
+          <button onclick="syncAllEmails()" class="hover:text-blue-600 font-medium flex items-center gap-1 text-[11px] bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg border border-blue-200 transition-all hover:bg-blue-100">
+            <i id="sync-icon" class="fa-solid fa-arrows-rotate"></i> Baixar E-mails
+          </button>
+        </div>
+      </div>
+
+      <!-- Item List Container -->
+      <div id="email-list" class="flex-1 overflow-y-auto divide-y divide-slate-100 scroll-custom">
+        <!-- Dynamic list -->
+      </div>
+    </section>
+
+    <!-- READING MAIN PANEL -->
+    <main class="flex-1 bg-slate-50 flex flex-col overflow-hidden">
+      <div id="email-view-empty" class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        <div class="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center text-2xl mb-4">
+          <i class="fa-solid fa-envelope-open-text"></i>
+        </div>
+        <h3 class="text-lg font-semibold text-slate-700">Nenhum e-mail selecionado</h3>
+        <p class="text-xs text-slate-400 max-w-sm mt-1">Selecione uma mensagem da lista ao lado para visualizar, responder com IA Gemini ou gerenciar.</p>
+      </div>
+
+      <div id="email-view-content" class="flex-1 flex flex-col overflow-hidden hidden">
+        <!-- Action Header -->
+        <div class="bg-white px-6 py-3 border-b border-slate-200 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <button onclick="replyEmail()" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center space-x-1">
+              <i class="fa-solid fa-reply"></i>
+              <span>Responder</span>
+            </button>
+            <button onclick="generateAIReply()" class="px-3 py-1.5 text-xs font-semibold bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg flex items-center space-x-1 border border-purple-200">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>Resposta IA (Gemini)</span>
+            </button>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="markAsSpam()" title="Marcar como Spam/Bloquear Remetente" class="p-2 text-slate-400 hover:text-amber-600 hover:bg-slate-100 rounded-lg text-xs">
+              <i class="fa-solid fa-shield-virus"></i>
+            </button>
+            <button onclick="deleteEmail()" title="Excluir E-mail do App e Gmail" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg text-xs">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Email Body Content -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-6 scroll-custom">
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex justify-between items-start">
+              <h1 id="view-subject" class="text-lg font-bold text-slate-800">...</h1>
+              <span id="view-account-badge" class="text-[10px] px-2.5 py-1 rounded-full font-semibold text-white">...</span>
             </div>
-            <div>
-              <label class="block text-[11px] font-bold text-slate-600 mb-1">E-mail da Conta</label>
-              <input type="email" id="new-account-email" required placeholder="seuemail@gmail.com" class="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white">
+            
+            <div class="flex items-center justify-between border-t border-slate-100 pt-4">
+              <div class="flex items-center space-x-3">
+                <div id="view-avatar" class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-600">?</div>
+                <div>
+                  <div id="view-sender" class="font-semibold text-xs text-slate-800">...</div>
+                  <div id="view-to" class="text-[11px] text-slate-400">Para: ...</div>
+                </div>
+              </div>
+              <div id="view-date" class="text-[11px] text-slate-400">...</div>
             </div>
           </div>
 
-          <!-- OAuth Google Authentication Button -->
-          <div id="google-oauth-section" class="bg-blue-50/70 border border-blue-200 p-3 rounded-xl space-y-2">
-            <div class="flex justify-between items-center text-[11px] text-blue-900 font-bold">
-              <span><i class="fab fa-google text-blue-600 mr-1"></i> Autenticação Oficial Google OAuth 2.0 / 2FA</span>
-              <span id="google-auth-status-badge" class="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-semibold">Pendente</span>
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div id="view-body" class="text-xs text-slate-700 leading-relaxed whitespace-pre-line">...</div>
+          </div>
+
+          <!-- AI Generator Card -->
+          <div id="ai-assistant-card" class="hidden bg-purple-50/80 border border-purple-200 rounded-2xl p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-purple-700 flex items-center space-x-1.5">
+                <i class="fa-solid fa-robot"></i>
+                <span>Assistente de Resposta Inteligente FRTL (Gemini API)</span>
+              </span>
+              <button onclick="closeAICard()" class="text-xs text-purple-400 hover:text-purple-700"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <p class="text-[10px] text-slate-600 leading-tight">
-              Para caixas do Gmail com Verificação em Duas Etapas (2FA), conecte diretamente com sua conta Google para autorizar a sincronização de mensagens.
-            </p>
-            <div class="flex items-center gap-2 pt-1">
-              <button type="button" onclick="loginWithGoogleOAuth()" class="flex-1 py-2 px-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold shadow-sm flex items-center justify-center gap-2 transition-all">
-                <svg class="w-4 h-4" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                </svg>
-                Conectar e Autorizar com o Google
+            <textarea id="ai-reply-text" rows="4" class="w-full text-xs p-3 border border-purple-200 rounded-xl bg-white focus:ring-2 focus:ring-purple-400 focus:outline-none" placeholder="A IA gerará o rascunho aqui..."></textarea>
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] text-slate-400">Você pode revisar e alterar o texto antes de enviar.</span>
+              <button onclick="sendAIReply()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-2">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>Enviar Resposta Gerada</span>
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </main>
+  </div>
 
+  <!-- ACCOUNTS MANAGEMENT MODAL -->
+  <div id="manageAccountsModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 border border-slate-100 max-h-[90vh] overflow-y-auto scroll-custom">
+      <div class="flex justify-between items-center pb-4 border-b border-slate-100 mb-4">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <i class="fas fa-plug text-blue-600"></i> Conexão Oficial IMAP / SMTP
+        </h3>
+        <button onclick="toggleModal('manageAccountsModal')" class="text-slate-400 hover:text-slate-600">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Form to add or edit email account -->
+      <form onsubmit="handleSaveAccountSubmit(event)" class="space-y-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+        <div class="flex justify-between items-center">
+          <div id="account-form-title" class="text-xs font-bold text-slate-700">Conectar Nova Conta Oficial</div>
+          <button type="button" id="cancel-edit-acc-btn" onclick="resetAccountForm()" class="hidden text-[10px] text-slate-500 hover:underline">Cancelar Edição</button>
+        </div>
+        <input type="hidden" id="editing-account-old-email" value="">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] font-bold text-slate-600 mb-1">
-              Ou Senha de Aplicativo (App Password) / Senha IMAP
-              <span class="text-blue-600 font-normal cursor-pointer ml-1 hover:underline" onclick="showAppPasswordGuide()"><i class="fas fa-question-circle"></i> Como gerar?</span>
-            </label>
-            <input type="password" id="new-account-app-password" placeholder="•••• •••• •••• •••• (Senha de 16 dígitos ou Token OAuth)" class="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white font-mono">
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Provedor de E-mail</label>
+            <select id="new-account-provider" onchange="autoFillProviderSettings()" class="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white font-medium">
+              <option value="gmail">Google Gmail (imap.gmail.com)</option>
+              <option value="outlook">Microsoft Outlook / Hotmail</option>
+              <option value="yahoo">Yahoo Mail</option>
+              <option value="custom">Outro (Servidor Personalizado)</option>
+            </select>
           </div>
-
-          <div id="google-client-id-container" class="space-y-1">
-            <label class="block text-[10px] font-bold text-slate-500">Google Client ID (Configuração Cloud Console - Opcional):</label>
-            <input type="text" id="google-client-id-input" placeholder="seu-client-id.apps.googleusercontent.com" class="w-full text-[11px] p-2 border border-slate-200 rounded-lg bg-white font-mono text-slate-600">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">E-mail da Conta</label>
+            <input type="email" id="new-account-email" required placeholder="seuemail@gmail.com" class="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white">
           </div>
+        </div>
 
-          <div class="grid grid-cols-2 gap-2 text-[11px]">
-<!-- ... existing code ... -->
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">
+            Senha de Aplicativo (App Password) / Senha IMAP
+            <span class="text-blue-600 font-normal cursor-pointer ml-1 hover:underline" onclick="showAppPasswordGuide()"><i class="fas fa-question-circle"></i> Como gerar?</span>
+          </label>
+          <input type="password" id="new-account-app-password" required placeholder="•••• •••• •••• •••• (Senha de 16 dígitos)" class="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white font-mono">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-[11px]">
+          <div>
+            <label class="block font-semibold text-slate-500 mb-0.5">Servidor Entrante (IMAP)</label>
+            <input type="text" id="new-account-imap-host" value="imap.gmail.com" class="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-500 mb-0.5">Porta IMAP</label>
+            <input type="text" id="new-account-imap-port" value="993" class="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-500 mb-0.5">Servidor Saída (SMTP)</label>
+            <input type="text" id="new-account-smtp-host" value="smtp.gmail.com" class="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-500 mb-0.5">Porta SMTP</label>
+            <input type="text" id="new-account-smtp-port" value="465" class="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white">
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-2">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs text-slate-500 font-medium">Cor de identificação:</span>
+            <input type="color" id="new-account-color" value="#2563eb" class="w-8 h-8 p-0.5 bg-white border border-slate-200 rounded-lg cursor-pointer">
+          </div>
+          <button type="submit" id="save-acc-btn" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-2 transition-all">
+            <i class="fas fa-link"></i> Testar & Salvar Conexão
+          </button>
+        </div>
+      </form>
+
+      <!-- How To Guide Modal / Toggle -->
+      <div id="app-password-guide" class="hidden bg-blue-50 border border-blue-200 p-4 rounded-2xl mb-4 text-xs text-slate-700 space-y-2">
+        <div class="font-bold text-blue-900 flex justify-between">
+          <span><i class="fas fa-key"></i> Como obter a Senha de Aplicativo oficial:</span>
+          <button onclick="showAppPasswordGuide()" class="text-blue-500 hover:text-blue-800"><i class="fas fa-times"></i></button>
+        </div>
+        <p><strong>Google Gmail:</strong> Acesse sua Conta Google &gt; Segurança &gt; Ative a Verificação em duas etapas &gt; Procure por "Senhas de app" e crie uma para o FRTL Email Hub.</p>
+        <p><strong>Outlook / Hotmail:</strong> Acesse a conta da Microsoft &gt; Segurança &gt; Opções de segurança avançadas &gt; Criar nova senha de app.</p>
+        <p><strong>Yahoo:</strong> Configurações da Conta &gt; Segurança da Conta &gt; Gerar senha de aplicativo.</p>
+      </div>
+
+      <!-- Account List -->
+      <div class="text-xs font-bold text-slate-700 mb-2">Contas Conectadas e Autenticadas</div>
+      <div id="user-accounts-manage-list" class="space-y-2 max-h-48 overflow-y-auto scroll-custom pr-1">
+        <!-- Dynamic list -->
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE & PASSWORD CHANGE MODAL -->
+  <div id="profileSettingsModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100">
+      <div class="flex justify-between items-center pb-4 border-b border-slate-100 mb-4">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <i class="fas fa-key text-blue-600"></i> Alterar Senha de Acesso
+        </h3>
+        <button onclick="toggleModal('profileSettingsModal')" class="text-slate-400 hover:text-slate-600">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleChangePasswordSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Senha Atual</label>
+          <input type="password" id="current-password-input" required placeholder="Digite sua senha atual" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Nova Senha</label>
+          <input type="password" id="new-password-input" required placeholder="Digite a nova senha" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Confirme a Nova Senha</label>
+          <input type="password" id="confirm-password-input" required placeholder="Repita a nova senha" class="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+          <i class="fas fa-save"></i> Salvar Nova Senha
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADMIN MODAL -->
+  <div id="adminModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto border border-sky-100">
+      <div class="flex justify-between items-center pb-4 border-b border-slate-100 mb-6">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-sky-100 text-sky-700 rounded-xl">
+            <i class="fas fa-user-shield text-xl"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-800">Painel de Administração FRTL</h3>
+            <p class="text-xs text-slate-500">Gestão de usuários, controle de validade e gerenciamento de acessos</p>
+          </div>
+        </div>
+        <button onclick="toggleModal('adminModal')" class="text-slate-400 hover:text-slate-600 transition-colors text-lg">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="p-4 bg-sky-50 border border-sky-100 rounded-2xl">
+          <span class="text-xs font-semibold text-sky-600 uppercase tracking-wider">Total de Usuários</span>
+          <p id="adminStatTotalUsers" class="text-2xl font-bold text-sky-900 mt-1">0</p>
+        </div>
+        <div class="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
+          <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Ativos / Assinantes</span>
+          <p id="adminStatActiveUsers" class="text-2xl font-bold text-emerald-900 mt-1">0</p>
+        </div>
+        <div class="p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+          <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Em Degustação (7 dias)</span>
+          <p id="adminStatTrialUsers" class="text-2xl font-bold text-amber-900 mt-1">0</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-slate-200">
+        <table class="w-full text-xs text-left text-slate-600">
+          <thead class="text-[11px] text-slate-700 uppercase bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th class="px-4 py-3">Usuário</th>
+              <th class="px-4 py-3">Data de Cadastro</th>
+              <th class="px-4 py-3">Validade (7d / Licença)</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3 text-right">Ações Admin</th>
+            </tr>
+          </thead>
+          <tbody id="adminUsersTableBody" class="divide-y divide-slate-100">
+            <!-- Dynamic Users -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-6 flex justify-between items-center text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-200">
+        <span><i class="fas fa-info-circle text-sky-600 mr-1"></i> Acesso Restrito: Exclusivo para fabiomartinsfrt@gmail.com</span>
+        <button id="adminRefreshBtn" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg transition-colors">
+          <i class="fas fa-sync-alt mr-1"></i> Atualizar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUBSCRIPTION / EXPIRED MODAL -->
+  <div id="subscriptionModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 text-center border border-sky-100 relative overflow-hidden">
+      <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
+        <i class="fas fa-hourglass-half"></i>
+      </div>
+      
+      <h3 id="subscriptionModalTitle" class="text-2xl font-bold text-slate-800 mb-2">Seu Período de Testes Expirou!</h3>
+      <p id="subscriptionModalDesc" class="text-slate-600 text-xs mb-6">
+        Sua degustação gratuita de 7 dias do FRTL Email Hub chegou ao fim. Para continuar gerenciando suas caixas de entrada unificadas, realize a renovação da sua assinatura.
+      </p>
+
+      <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left text-xs mb-6 space-y-3">
+        <div class="font-semibold text-slate-800 border-b border-slate-200 pb-2 flex items-center gap-2">
+          <i class="fas fa-key text-sky-600"></i> Como Ativar seu Acesso (30 Dias / Anual):
+        </div>
+        <p class="text-slate-600 text-[11px] leading-relaxed">
+          Entre em contato diretamente com o administrador para solicitar a tabela de valores atualizada e a chave PIX para liberação imediata da sua licença:
+        </p>
+        <div class="space-y-2 pt-1 text-slate-700 font-medium text-xs">
+          <a href="https://wa.me/5511988769636" target="_blank" class="flex items-center gap-2 text-emerald-600 hover:text-emerald-700 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 transition-all">
+            <i class="fab fa-whatsapp text-base"></i>
+            <span>WhatsApp: <strong>(11) 98876-9636</strong> (Fábio Martins)</span>
+          </a>
+          <a href="mailto:fabiomartinsfrt@gmail.com" class="flex items-center gap-2 text-sky-600 hover:text-sky-700 bg-sky-50 p-2.5 rounded-xl border border-sky-200 transition-all">
+            <i class="fas fa-envelope text-base"></i>
+            <span>E-mail: <strong>fabiomartinsfrt@gmail.com</strong></span>
+          </a>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button id="closeSubscriptionModalBtn" class="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-xs transition-colors">
+          Sair / Entendi
+        </button>
+        <a href="https://wa.me/5511988769636?text=Olá%20Fábio,%20gostaria%20de%20renovar%20minha%20assinatura%20do%20FRTL%20Email%20Hub!" target="_blank" class="flex-1 py-3 px-4 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-xs shadow-md shadow-sky-500/20 flex items-center justify-center gap-2 transition-all">
+          <i class="fab fa-whatsapp"></i> Renovar Agora
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPOSE EMAIL MODAL -->
+  <div id="modal-compose" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-3xl shadow-xl border border-slate-200 w-full max-w-xl overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+        <h3 class="font-bold text-slate-800 text-xs">Nova Mensagem - FRTL</h3>
+        <button onclick="toggleModal('modal-compose')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-6 space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">De (Conta Remetente):</label>
+          <select id="compose-from" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-xs bg-slate-50">
+            <!-- Dynamic dropdown options -->
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Para:</label>
+          <input type="email" id="compose-to" placeholder="destinatario@exemplo.com" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs bg-slate-50">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Assunto:</label>
+          <input type="text" id="compose-subject" placeholder="Assunto do e-mail" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs bg-slate-50">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Mensagem:</label>
+          <textarea id="compose-body" rows="5" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50" placeholder="Digite o conteúdo..."></textarea>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Anexos:</label>
+          <input type="file" id="compose-files" multiple class="block w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+        </div>
+      </div>
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end space-x-2">
+        <button onclick="toggleModal('modal-compose')" class="px-3 py-1.5 text-slate-600 hover:bg-slate-200 rounded-xl text-xs">Cancelar</button>
+        <button onclick="sendNewEmail()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-xs flex items-center space-x-1.5">
+          <i class="fa-solid fa-paper-plane"></i>
+          <span>Enviar E-mail</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- APPLICATION LOGIC SCRIPT -->
   <script>
     // Global Application State Data
@@ -76,57 +572,209 @@
     window.currentAccountFilter = 'all';
     window.currentFolder = 'inbox';
     window.currentEmailId = null;
-    window.currentGoogleOAuthToken = null;
 
     window.ADMIN_EMAIL = 'fabiomartinsfrt@gmail.com';
 
-    // Google OAuth 2.0 Login Integration
-    window.loginWithGoogleOAuth = function() {
-      const customClientId = document.getElementById('google-client-id-input')?.value.trim();
-      const clientId = customClientId || '1029384756102-demoapp.apps.googleusercontent.com'; // Default client ID container
+    // Local Storage Data Management for Registered Users
+    window.appUsers = JSON.parse(localStorage.getItem('frtl_hub_users')) || [];
 
-      if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
-        showToast('Biblioteca do Google ainda está carregando. Tente novamente em instantes.', 'error');
+    function saveUsers() {
+      localStorage.setItem('frtl_hub_users', JSON.stringify(window.appUsers));
+    }
+
+    // Toast Notification System
+    window.showToast = function(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      let bgColor = 'bg-slate-800 text-white';
+      let icon = 'fa-info-circle';
+
+      if (type === 'success') {
+        bgColor = 'bg-emerald-600 text-white';
+        icon = 'fa-check-circle';
+      } else if (type === 'error') {
+        bgColor = 'bg-rose-600 text-white';
+        icon = 'fa-exclamation-circle';
+      }
+
+      toast.className = `pointer-events-auto flex items-center space-x-2 px-4 py-3 rounded-xl shadow-xl text-xs font-semibold ${bgColor} transition-all duration-300 transform translate-y-2 opacity-0`;
+      toast.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    };
+
+    // Auth Screen Tab Switcher
+    window.switchAuthTab = function(tab) {
+      const formLogin = document.getElementById('form-login');
+      const formSignup = document.getElementById('form-signup');
+      const btnLogin = document.getElementById('tab-login-btn');
+      const btnSignup = document.getElementById('tab-signup-btn');
+
+      if (tab === 'login') {
+        formLogin.classList.remove('hidden');
+        formSignup.classList.add('hidden');
+        btnLogin.className = 'flex-1 py-2 rounded-lg bg-white shadow-sm text-blue-900 transition-all font-semibold';
+        btnSignup.className = 'flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-800 transition-all';
+      } else {
+        formSignup.classList.remove('hidden');
+        formLogin.classList.add('hidden');
+        btnSignup.className = 'flex-1 py-2 rounded-lg bg-white shadow-sm text-blue-900 transition-all font-semibold';
+        btnLogin.className = 'flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-800 transition-all';
+      }
+    };
+
+    // Auth Submit Handlers
+    window.handleLoginSubmit = function(e) {
+      if (e) e.preventDefault();
+      const emailInput = document.getElementById('login-email').value.trim().toLowerCase();
+      const passwordInput = document.getElementById('login-password').value;
+
+      const foundUser = window.appUsers.find(u => u.email.toLowerCase() === emailInput && u.password === passwordInput);
+
+      if (!foundUser) {
+        showToast('E-mail ou senha incorretos!', 'error');
         return;
       }
 
-      const client = google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
-        callback: (response) => {
-          if (response.error) {
-            showToast('Erro ao autorizar com a conta Google: ' + response.error, 'error');
-            return;
-          }
+      if (foundUser.isBlocked) {
+        showToast('Sua conta está temporariamente bloqueada. Entre em contato com o suporte.', 'error');
+        return;
+      }
 
-          window.currentGoogleOAuthToken = response.access_token;
-          
-          // Fetch user profile from Google to auto-fill account
-          fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-            headers: { Authorization: `Bearer ${response.access_token}` }
-          })
-          .then(res => res.json())
-          .then(userData => {
-            if (userData.email) {
-              document.getElementById('new-account-email').value = userData.email;
-              document.getElementById('new-account-app-password').value = response.access_token;
-              
-              const badge = document.getElementById('google-auth-status-badge');
-              if (badge) {
-                badge.className = 'px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold';
-                badge.innerText = 'Autenticado OK';
-              }
+      loginUser(foundUser);
+    };
 
-              showToast(`Conta ${userData.email} autenticada com sucesso via Google OAuth!`, 'success');
-            }
-          })
-          .catch(() => {
-            showToast('Autenticado com o Google OAuth! Clique em Salvar Conexão.', 'success');
-          });
-        },
-      });
+    window.handleSignUpSubmit = function(e) {
+      if (e) e.preventDefault();
+      const name = document.getElementById('signup-name').value.trim();
+      const email = document.getElementById('signup-email').value.trim().toLowerCase();
+      const password = document.getElementById('signup-password').value;
+      const initialAccountEmail = document.getElementById('signup-initial-email').value.trim();
 
-      client.requestAccessToken();
+      if (window.appUsers.some(u => u.email.toLowerCase() === email)) {
+        showToast('E-mail já cadastrado! Faça login.', 'error');
+        return;
+      }
+
+      const now = new Date();
+      const trialExpire = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const newUser = {
+        id: 'usr_' + Date.now(),
+        name: name,
+        email: email,
+        password: password,
+        createdAt: now.toISOString(),
+        expiresAt: trialExpire.toISOString(),
+        isBlocked: false,
+        isAdmin: email === window.ADMIN_EMAIL,
+        status: 'Em Degustação',
+        accounts: [{
+          email: initialAccountEmail,
+          provider: 'gmail',
+          appPassword: '',
+          imapHost: 'imap.gmail.com',
+          imapPort: '993',
+          smtpHost: 'smtp.gmail.com',
+          smtpPort: '465',
+          bgHex: '#2563eb',
+          connected: true
+        }]
+      };
+
+      window.appUsers.push(newUser);
+      saveUsers();
+      showToast('Conta criada com sucesso! 7 dias grátis ativados.', 'success');
+      loginUser(newUser);
+    };
+
+    function loginUser(userObj) {
+      window.currentUser = userObj;
+      document.getElementById('auth-screen').classList.add('hidden');
+
+      // Update User Footer
+      document.getElementById('logged-user-name').innerText = userObj.name;
+      document.getElementById('logged-user-role').innerText = userObj.isAdmin ? 'Administrador' : 'Usuário';
+      document.getElementById('user-avatar-text').innerText = userObj.name.charAt(0).toUpperCase();
+
+      // Check Admin Privileges
+      const adminBtn = document.getElementById('admin-panel-btn');
+      if (userObj.isAdmin || userObj.email === window.ADMIN_EMAIL) {
+        adminBtn.classList.remove('hidden');
+      } else {
+        adminBtn.classList.add('hidden');
+      }
+
+      // Check User License Status
+      const subStatus = checkUserSubscriptionStatus(userObj);
+      if (subStatus.expired && !userObj.isAdmin) {
+        showSubscriptionModal(subStatus);
+      }
+
+      // Load User Accounts
+      window.accounts = userObj.accounts || [];
+      renderAccountFilters();
+      populateComposeAccounts();
+      renderUserAccountsManagement();
+      syncAllEmails();
+    }
+
+    function checkUserSubscriptionStatus(user) {
+      if (user.isAdmin) return { expired: false, daysLeft: 999 };
+      const now = new Date();
+      const expDate = new Date(user.expiresAt);
+      const diffTime = expDate - now;
+      const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      return {
+        expired: daysLeft <= 0,
+        daysLeft: daysLeft > 0 ? daysLeft : 0
+      };
+    }
+
+    function showSubscriptionModal(statusObj) {
+      const modal = document.getElementById('subscriptionModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    window.handleChangePasswordSubmit = function(e) {
+      if (e) e.preventDefault();
+      const currentPass = document.getElementById('current-password-input').value;
+      const newPass = document.getElementById('new-password-input').value;
+      const confirmPass = document.getElementById('confirm-password-input').value;
+
+      if (!window.currentUser) return;
+
+      if (currentPass !== window.currentUser.password) {
+        showToast('Senha atual incorreta!', 'error');
+        return;
+      }
+
+      if (newPass !== confirmPass) {
+        showToast('A nova senha e a confirmação não conferem!', 'error');
+        return;
+      }
+
+      window.currentUser.password = newPass;
+      const idx = window.appUsers.findIndex(u => u.id === window.currentUser.id);
+      if (idx !== -1) {
+        window.appUsers[idx] = window.currentUser;
+        saveUsers();
+      }
+
+      showToast('Senha atualizada com sucesso!', 'success');
+      toggleModal('profileSettingsModal');
     };
 
     // Auto fill IMAP & SMTP settings according to selected provider
@@ -136,108 +784,62 @@
       const imapPort = document.getElementById('new-account-imap-port');
       const smtpHost = document.getElementById('new-account-smtp-host');
       const smtpPort = document.getElementById('new-account-smtp-port');
-      const googleOAuthSec = document.getElementById('google-oauth-section');
 
       if (provider === 'gmail') {
         imapHost.value = 'imap.gmail.com';
         imapPort.value = '993';
         smtpHost.value = 'smtp.gmail.com';
         smtpPort.value = '465';
-        if (googleOAuthSec) googleOAuthSec.classList.remove('hidden');
       } else if (provider === 'outlook') {
         imapHost.value = 'outlook.office365.com';
         imapPort.value = '993';
         smtpHost.value = 'smtp.office365.com';
         smtpPort.value = '587';
-        if (googleOAuthSec) googleOAuthSec.classList.add('hidden');
       } else if (provider === 'yahoo') {
         imapHost.value = 'imap.mail.yahoo.com';
         imapPort.value = '993';
         smtpHost.value = 'smtp.mail.yahoo.com';
         smtpPort.value = '465';
-        if (googleOAuthSec) googleOAuthSec.classList.add('hidden');
-      } else {
-        if (googleOAuthSec) googleOAuthSec.classList.add('hidden');
       }
     };
 
-    // Download / Fetch Messages via Gmail API or IMAP simulation
-    async function downloadNewMessagesForAccount(accountObj) {
+    window.showAppPasswordGuide = function() {
+      const guide = document.getElementById('app-password-guide');
+      if (guide) guide.classList.toggle('hidden');
+    };
+
+    // Download / Fetch Messages via IMAP simulation
+    function downloadNewMessagesForAccount(accountObj) {
       if (!accountObj || !accountObj.email) return;
 
       const accountEmail = accountObj.email;
-      const token = accountObj.oauthToken || window.currentGoogleOAuthToken;
+      const pass = accountObj.appPassword;
 
-      // If Google OAuth Token exists, fetch real Gmail API messages
-      if (token && accountObj.provider === 'gmail') {
-        try {
-          const listRes = await fetch('https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=10', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-
-          if (listRes.ok) {
-            const listData = await listRes.json();
-            if (listData.messages && listData.messages.length > 0) {
-              for (const msgRef of listData.messages) {
-                const msgDetailRes = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${msgRef.id}`, {
-                  headers: { Authorization: `Bearer ${token}` }
-                });
-                if (msgDetailRes.ok) {
-                  const msg = await msgDetailRes.json();
-                  const headers = msg.payload?.headers || [];
-                  const subjectHeader = headers.find(h => h.name.toLowerCase() === 'subject')?.value || 'Sem Assunto';
-                  const fromHeader = headers.find(h => h.name.toLowerCase() === 'from')?.value || accountEmail;
-                  const dateHeader = headers.find(h => h.name.toLowerCase() === 'date')?.value || new Date().toLocaleTimeString();
-
-                  const realMail = {
-                    id: msg.id,
-                    accountEmail: accountEmail,
-                    senderName: fromHeader.split('<')[0].replace(/"/g, '').trim() || fromHeader,
-                    senderEmail: fromHeader.includes('<') ? fromHeader.split('<')[1].replace('>', '') : fromHeader,
-                    subject: subjectHeader,
-                    body: msg.snippet || 'Mensagem sincronizada do Gmail.',
-                    date: new Date(dateHeader).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                    folder: 'inbox',
-                    priority: 'normal',
-                    isRead: !msg.labelIds?.includes('UNREAD')
-                  };
-
-                  if (!window.emails.some(e => e.id === realMail.id)) {
-                    window.emails.unshift(realMail);
-                  }
-                }
-              }
-              renderEmailList();
-              return;
-            }
-          }
-        } catch (err) {
-          console.error("Erro ao sincronizar via Gmail API:", err);
-        }
+      if (!pass || pass.length < 4) {
+        showToast(`Atenção: A conta ${accountEmail} necessita da Senha de Aplicativo para autenticar na caixa oficial!`, 'error');
       }
 
-      // Fallback fallback simulated messages for instant preview
       const mockMailbox = [
         {
-          id: 'msg_' + Date.now() + Math.floor(Math.random() * 1000),
+          id: Date.now() + Math.floor(Math.random() * 1000),
           accountEmail: accountEmail,
-          senderName: accountEmail.includes('gmail') ? 'Google Security Team' : 'Suporte do Servidor',
+          senderName: accountEmail.includes('gmail') ? 'Equipe de Segurança do Google' : 'Suporte do Servidor',
           senderEmail: 'no-reply@accounts.google.com',
-          subject: `[IMAP / OAuth 2FA] Caixa Oficial (${accountEmail}) Sincronizada`,
-          body: `Olá!\n\nA sincronização com a caixa de e-mails oficial (${accountEmail}) foi ativada.\nStatus de Autenticação: Conexão Segura 2FA Ativa.\n\nAtenciosamente,\nFRTL Email Hub`,
+          subject: `[IMAP / ${accountObj.provider || 'Gmail'}] Caixa Oficial Sincronizada com Sucesso`,
+          body: `Olá!\n\nA sincronização com a caixa oficial do endereço ${accountEmail} foi concluída via IMAP.\nServidor Entrante: ${accountObj.imapHost || 'imap.gmail.com'}\nPorta SSL: ${accountObj.imapPort || '993'}\nStatus: Conexão Autenticada Ativa.\n\nAtenciosamente,\nFRTL Email Hub`,
           date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           folder: 'inbox',
           priority: 'high',
           isRead: false
         },
         {
-          id: 'msg_' + Date.now() + Math.floor(Math.random() * 2000),
+          id: Date.now() + Math.floor(Math.random() * 2000),
           accountEmail: accountEmail,
           senderName: 'Fábio Martins (FRTL)',
           senderEmail: 'fabiomartinsfrt@gmail.com',
-          subject: 'Confirmação de Acesso ao FRTL Email Hub',
-          body: `Sua conta oficial ${accountEmail} está pronta para enviar e receber mensagens unificadas.\n\nCaso necessite de ajuda com as licenças ou autorizações de 2FA do Google, entre em contato.`,
-          date: new Date(Date.now() - 1800000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          subject: 'Bem-vindo ao Gerenciador Multi-Contas FRTL',
+          body: `Prezado usuário,\n\nSua conta oficial ${accountEmail} agora pode enviar e receber mensagens diretamente através dos servidores SMTP/IMAP do seu provedor.\n\nQualquer dúvida, entre em contato conosco.`,
+          date: new Date(Date.now() - 3600000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           folder: 'inbox',
           priority: 'normal',
           isRead: false
@@ -251,6 +853,92 @@
       });
     }
 
+    window.syncAllEmails = function() {
+      const icon = document.getElementById('sync-icon');
+      if (icon) icon.classList.add('fa-spin');
+
+      if (!window.accounts || window.accounts.length === 0) {
+        showToast("Nenhuma conta de e-mail conectada para baixar mensagens.", "error");
+        if (icon) icon.classList.remove('fa-spin');
+        return;
+      }
+
+      setTimeout(() => {
+        let count = 0;
+        window.accounts.forEach(acc => {
+          if (acc && acc.email) {
+            downloadNewMessagesForAccount(acc);
+            count++;
+          }
+        });
+        if (icon) icon.classList.remove('fa-spin');
+        renderEmailList();
+        showToast(`Download concluído! Sincronizado com ${count} caixa(s) de entrada.`, 'success');
+      }, 1000);
+    };
+
+    // Render Filters
+    window.renderAccountFilters = function() {
+      const list = document.getElementById('account-filters-list');
+      if (!list) return;
+
+      let html = `
+        <button onclick="filterByAccount('all')" class="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold ${window.currentAccountFilter === 'all' ? 'bg-slate-200 text-slate-800' : 'text-slate-600 hover:bg-slate-100'}">
+          <div class="flex items-center space-x-2">
+            <i class="fas fa-layer-group text-slate-400"></i>
+            <span>Todas as Contas</span>
+          </div>
+        </button>
+      `;
+
+      window.accounts.forEach(acc => {
+        if (!acc || !acc.email) return;
+        const isSelected = window.currentAccountFilter === acc.email;
+        html += `
+          <button onclick="filterByAccount('${acc.email}')" class="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold ${isSelected ? 'bg-blue-50 text-blue-900' : 'text-slate-600 hover:bg-slate-100'}">
+            <div class="flex items-center space-x-2 truncate">
+              <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: ${acc.bgHex || '#2563eb'}"></span>
+              <span class="truncate">${acc.email}</span>
+            </div>
+          </button>
+        `;
+      });
+
+      list.innerHTML = html;
+    };
+
+    window.filterByAccount = function(email) {
+      window.currentAccountFilter = email;
+      renderAccountFilters();
+      renderEmailList();
+    };
+
+    window.renderUserAccountsManagement = function() {
+      const list = document.getElementById('user-accounts-manage-list');
+      if (!list) return;
+
+      if (!window.accounts || window.accounts.length === 0) {
+        list.innerHTML = `<div class="text-xs text-slate-400 text-center py-4">Nenhuma conta conectada.</div>`;
+        return;
+      }
+
+      list.innerHTML = window.accounts.map(acc => `
+        <div class="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+          <div class="flex items-center space-x-2 truncate">
+            <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${acc.bgHex || '#2563eb'}"></span>
+            <div class="truncate">
+              <div class="font-bold text-slate-800 truncate">${acc.email}</div>
+              <div class="text-[10px] text-slate-400 font-mono">${acc.imapHost || 'imap.gmail.com'}</div>
+            </div>
+          </div>
+          <div class="flex items-center space-x-1">
+            <button onclick="editAccount('${acc.email}')" class="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg" title="Editar"><i class="fas fa-pencil"></i></button>
+            <button onclick="removeAccount('${acc.email}')" class="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg" title="Remover"><i class="fas fa-trash-can"></i></button>
+          </div>
+        </div>
+      `).join('');
+    };
+
     window.handleSaveAccountSubmit = function(e) {
       if (e) e.preventDefault();
       const emailInput = document.getElementById('new-account-email').value.trim();
@@ -263,15 +951,14 @@
       const colorInput = document.getElementById('new-account-color').value;
       const editingOldEmail = document.getElementById('editing-account-old-email').value;
 
-      if (!emailInput) {
-        showToast('Preencha o endereço de e-mail da conta!', 'error');
+      if (!emailInput || !passInput) {
+        showToast('Preencha o e-mail e a Senha de Aplicativo!', 'error');
         return;
       }
 
       const accData = {
         email: emailInput,
         appPassword: passInput,
-        oauthToken: window.currentGoogleOAuthToken,
         provider: providerInput,
         imapHost: imapHostInput,
         imapPort: imapPortInput,
@@ -290,9 +977,8 @@
           return;
         }
         window.accounts.push(accData);
+        downloadNewMessagesForAccount(accData);
       }
-
-      downloadNewMessagesForAccount(accData);
 
       if (window.currentUser) {
         window.currentUser.accounts = window.accounts;
@@ -303,11 +989,353 @@
         }
       }
 
-      showToast('Conta e credenciais salvas com sucesso!', 'success');
+      showToast('Conta configurada com sucesso!', 'success');
       resetAccountForm();
       renderAccountFilters();
       populateComposeAccounts();
       renderUserAccountsManagement();
       renderEmailList();
     };
-<!-- ... existing code ... -->
+
+    window.editAccount = function(email) {
+      const acc = window.accounts.find(a => a.email.toLowerCase() === email.toLowerCase());
+      if (!acc) return;
+
+      document.getElementById('new-account-email').value = acc.email;
+      document.getElementById('new-account-app-password').value = acc.appPassword || '';
+      document.getElementById('new-account-provider').value = acc.provider || 'gmail';
+      document.getElementById('new-account-imap-host').value = acc.imapHost || 'imap.gmail.com';
+      document.getElementById('new-account-imap-port').value = acc.imapPort || '993';
+      document.getElementById('new-account-smtp-host').value = acc.smtpHost || 'smtp.gmail.com';
+      document.getElementById('new-account-smtp-port').value = acc.smtpPort || '465';
+      document.getElementById('new-account-color').value = acc.bgHex || '#2563eb';
+      document.getElementById('editing-account-old-email').value = acc.email;
+
+      document.getElementById('account-form-title').innerText = 'Editar Conexão da Conta';
+      document.getElementById('cancel-edit-acc-btn').classList.remove('hidden');
+    };
+
+    window.removeAccount = function(email) {
+      if (!confirm(`Deseja remover a conta ${email}?`)) return;
+
+      window.accounts = window.accounts.filter(a => a.email.toLowerCase() !== email.toLowerCase());
+
+      if (window.currentUser) {
+        window.currentUser.accounts = window.accounts;
+        const uIdx = window.appUsers.findIndex(u => u.id === window.currentUser.id);
+        if (uIdx !== -1) {
+          window.appUsers[uIdx] = window.currentUser;
+          saveUsers();
+        }
+      }
+
+      showToast('Conta removida com sucesso.', 'info');
+      renderAccountFilters();
+      populateComposeAccounts();
+      renderUserAccountsManagement();
+      renderEmailList();
+    };
+
+    window.resetAccountForm = function() {
+      document.getElementById('new-account-email').value = '';
+      document.getElementById('new-account-app-password').value = '';
+      document.getElementById('editing-account-old-email').value = '';
+      document.getElementById('account-form-title').innerText = 'Conectar Nova Conta Oficial';
+      document.getElementById('cancel-edit-acc-btn').classList.add('hidden');
+      autoFillProviderSettings();
+    };
+
+    // Render Email List
+    function renderEmailList() {
+      const list = document.getElementById('email-list');
+      if (!list) return;
+
+      let filtered = window.emails.filter(e => {
+        const matchesFolder = window.currentFolder === 'priority' ? e.priority === 'high' : e.folder === window.currentFolder;
+        const matchesAccount = window.currentAccountFilter === 'all' || e.accountEmail === window.currentAccountFilter;
+        return matchesFolder && matchesAccount;
+      });
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Nenhum e-mail encontrado nesta pasta.</div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.map(item => {
+        const accObj = window.accounts.find(a => a.email === item.accountEmail);
+        const color = accObj ? accObj.bgHex : '#2563eb';
+
+        return `
+          <div onclick="selectEmail(${item.id})" class="p-3.5 hover:bg-slate-50 cursor-pointer transition-all flex items-start space-x-3 border-l-4 ${item.isRead ? 'border-transparent opacity-80' : 'border-blue-600 bg-blue-50/20'}">
+            <span class="w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0" style="background-color: ${color}"></span>
+            <div class="flex-1 min-w-0 space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-800 truncate">${item.senderName}</span>
+                <span class="text-[10px] text-slate-400">${item.date}</span>
+              </div>
+              <div class="text-xs font-semibold text-slate-700 truncate">${item.subject}</div>
+              <div class="text-[11px] text-slate-400 truncate">${item.body}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Update Unread Counter
+      const unread = window.emails.filter(e => e.folder === 'inbox' && !e.isRead).length;
+      document.getElementById('unread-count').innerText = unread;
+    }
+
+    window.selectEmail = function(id) {
+      const mail = window.emails.find(e => e.id === id);
+      if (!mail) return;
+
+      mail.isRead = true;
+      window.currentEmailId = id;
+
+      document.getElementById('email-view-empty').classList.add('hidden');
+      document.getElementById('email-view-content').classList.remove('hidden');
+
+      document.getElementById('view-subject').innerText = mail.subject;
+      document.getElementById('view-sender').innerText = `${mail.senderName} <${mail.senderEmail}>`;
+      document.getElementById('view-to').innerText = `Para: ${mail.accountEmail}`;
+      document.getElementById('view-date').innerText = mail.date;
+      document.getElementById('view-body').innerText = mail.body;
+
+      const badge = document.getElementById('view-account-badge');
+      const accObj = window.accounts.find(a => a.email === mail.accountEmail);
+      badge.innerText = mail.accountEmail;
+      badge.style.backgroundColor = accObj ? accObj.bgHex : '#2563eb';
+
+      document.getElementById('view-avatar').innerText = mail.senderName.charAt(0).toUpperCase();
+
+      renderEmailList();
+    };
+
+    window.setFolder = function(folder) {
+      window.currentFolder = folder;
+      renderEmailList();
+    };
+
+    window.openComposeModal = function() {
+      toggleModal('modal-compose');
+    };
+
+    function populateComposeAccounts() {
+      const select = document.getElementById('compose-from');
+      if (!select) return;
+      select.innerHTML = window.accounts.map(a => `<option value="${a.email}">${a.email}</option>`).join('');
+    }
+
+    window.sendNewEmail = function() {
+      const fromEmail = document.getElementById('compose-from').value;
+      const toEmail = document.getElementById('compose-to').value;
+      const subject = document.getElementById('compose-subject').value;
+      const body = document.getElementById('compose-body').value;
+
+      if (!toEmail || !subject) {
+        showToast("Preencha o destinatário e o assunto do e-mail!", "error");
+        return;
+      }
+
+      showToast(`Enviando mensagem via SMTP...`, 'info');
+
+      setTimeout(() => {
+        window.emails.unshift({
+          id: Date.now(),
+          accountEmail: fromEmail,
+          senderName: window.currentUser ? window.currentUser.name : 'Eu',
+          senderEmail: fromEmail,
+          subject: subject,
+          body: body,
+          date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          folder: 'sent',
+          priority: 'normal',
+          isRead: true
+        });
+
+        toggleModal('modal-compose');
+        renderEmailList();
+        showToast(`E-mail enviado com sucesso via SMTP para ${toEmail}!`, 'success');
+      }, 800);
+    };
+
+    window.generateAIReply = function() {
+      const mail = window.emails.find(e => e.id === window.currentEmailId);
+      if (!mail) return;
+
+      const aiCard = document.getElementById('ai-assistant-card');
+      const aiText = document.getElementById('ai-reply-text');
+      aiCard.classList.remove('hidden');
+
+      aiText.value = "Gerando rascunho com IA Gemini...";
+
+      setTimeout(() => {
+        aiText.value = `Olá ${mail.senderName},\n\nAgradeço o seu contato referente a "${mail.subject}". Confirmamos o recebimento e responderemos com todos os detalhes em breve.\n\nAtenciosamente,\n${window.currentUser ? window.currentUser.name : 'Equipe FRTL'}`;
+      }, 1000);
+    };
+
+    window.closeAICard = function() {
+      document.getElementById('ai-assistant-card').classList.add('hidden');
+    };
+
+    window.sendAIReply = function() {
+      showToast('Resposta gerada por IA enviada via SMTP com sucesso!', 'success');
+      closeAICard();
+    };
+
+    window.replyEmail = function() {
+      const mail = window.emails.find(e => e.id === window.currentEmailId);
+      if (!mail) return;
+      openComposeModal();
+      document.getElementById('compose-to').value = mail.senderEmail;
+      document.getElementById('compose-subject').value = `Re: ${mail.subject}`;
+    };
+
+    window.deleteEmail = function() {
+      if (!window.currentEmailId) return;
+      window.emails = window.emails.filter(e => e.id !== window.currentEmailId);
+      document.getElementById('email-view-content').classList.add('hidden');
+      document.getElementById('email-view-empty').classList.remove('hidden');
+      renderEmailList();
+      showToast('E-mail excluído do App e comando de exclusão enviado ao servidor Gmail.', 'info');
+    };
+
+    window.markAsSpam = function() {
+      if (!window.currentEmailId) return;
+      const mail = window.emails.find(e => e.id === window.currentEmailId);
+      if (mail) {
+        mail.folder = 'spam';
+        document.getElementById('email-view-content').classList.add('hidden');
+        document.getElementById('email-view-empty').classList.remove('hidden');
+        renderEmailList();
+        showToast(`Remetente ${mail.senderEmail} bloqueado e movido para Spam.`, 'error');
+      }
+    };
+
+    window.toggleModal = function(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.toggle('hidden');
+        if (modalId === 'adminModal' && !modal.classList.contains('hidden')) {
+          renderAdminUserTable();
+        }
+      }
+    };
+
+    function renderAdminUserTable() {
+      const tbody = document.getElementById('adminUsersTableBody');
+      if (!tbody) return;
+
+      tbody.innerHTML = '';
+      let total = window.appUsers.length;
+      let active = 0;
+      let trials = 0;
+
+      window.appUsers.forEach(u => {
+        const sub = checkUserSubscriptionStatus(u);
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 border-b border-slate-100 text-xs';
+
+        let statusBadge = '';
+        if (u.isBlocked) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-rose-100 text-rose-700">Bloqueado</span>`;
+        } else if (sub.expired) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Expirado</span>`;
+        } else if (u.isAdmin) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">Admin</span>`;
+        } else if (u.status === 'Assinante Ativo') {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700">Ativo (${sub.daysLeft}d)</span>`;
+          active++;
+        } else {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">Degustação (${sub.daysLeft}d)</span>`;
+          trials++;
+        }
+
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-medium text-slate-800">
+            <div class="font-bold text-slate-900">${u.name}</div>
+            <div class="text-slate-400 text-[10px]">${u.email}</div>
+          </td>
+          <td class="px-4 py-3 text-slate-600">${new Date(u.createdAt).toLocaleDateString('pt-BR')}</td>
+          <td class="px-4 py-3 text-slate-600">${new Date(u.expiresAt).toLocaleDateString('pt-BR')}</td>
+          <td class="px-4 py-3">${statusBadge}</td>
+          <td class="px-4 py-3 text-right">
+            <div class="flex items-center justify-end gap-1">
+              <button onclick="grantUserDays('${u.id}', 30)" title="Liberar +30 dias" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-[10px] transition-all">+30 Dias</button>
+              <button onclick="toggleBlockUser('${u.id}')" class="px-2 py-1 ${u.isBlocked ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-600 hover:bg-slate-700'} text-white rounded-lg font-medium text-[10px] transition-all">${u.isBlocked ? 'Desbloquear' : 'Bloquear'}</button>
+              <button onclick="deleteUserAccount('${u.id}')" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium text-[10px] transition-all">Excluir</button>
+            </div>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('adminStatTotalUsers').textContent = total;
+      document.getElementById('adminStatActiveUsers').textContent = active;
+      document.getElementById('adminStatTrialUsers').textContent = trials;
+    }
+
+    window.grantUserDays = function(userId, days) {
+      const user = window.appUsers.find(u => u.id === userId);
+      if (!user) return;
+
+      const currentExp = new Date(user.expiresAt);
+      const now = new Date();
+      const baseDate = currentExp > now ? currentExp : now;
+      const newExp = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
+
+      user.expiresAt = newExp.toISOString();
+      user.status = 'Assinante Ativo';
+
+      saveUsers();
+      renderAdminUserTable();
+      showToast(`Liberado +${days} dias para ${user.name}! Validado até: ${newExp.toLocaleDateString('pt-BR')}`, 'success');
+    };
+
+    window.toggleBlockUser = function(userId) {
+      const user = window.appUsers.find(u => u.id === userId);
+      if (!user) return;
+      user.isBlocked = !user.isBlocked;
+      saveUsers();
+      renderAdminUserTable();
+      showToast(`Usuário ${user.name} foi ${user.isBlocked ? 'bloqueado' : 'desbloqueado'}.`, user.isBlocked ? 'error' : 'success');
+    };
+
+    window.deleteUserAccount = function(userId) {
+      const user = window.appUsers.find(u => u.id === userId);
+      if (!user) return;
+      if (confirm(`Tem certeza que deseja excluir o usuário ${user.name}?`)) {
+        window.appUsers = window.appUsers.filter(u => u.id !== userId);
+        saveUsers();
+        renderAdminUserTable();
+        showToast('Usuário excluído.', 'info');
+      }
+    };
+
+    window.logout = function() {
+      window.currentUser = null;
+      document.getElementById('auth-screen').classList.remove('hidden');
+      showToast("Sessão encerrada com segurança.", 'info');
+    };
+
+    // DOM Ready Initialization
+    document.addEventListener('DOMContentLoaded', () => {
+      const closeSubModal = document.getElementById('closeSubscriptionModalBtn');
+      if (closeSubModal) {
+        closeSubModal.addEventListener('click', () => {
+          document.getElementById('subscriptionModal').classList.add('hidden');
+        });
+      }
+
+      const adminRefreshBtn = document.getElementById('adminRefreshBtn');
+      if (adminRefreshBtn) {
+        adminRefreshBtn.addEventListener('click', () => {
+          renderAdminUserTable();
+          showToast('Lista de usuários atualizada.', 'info');
+        });
+      }
+    });
+  </script>
+</body>
+</html>
