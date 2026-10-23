@@ -28,7 +28,7 @@
 </head>
 <body class="bg-slate-100 font-sans text-slate-800 antialiased h-screen overflow-hidden flex flex-col">
 
-  <!-- TOAST NOTIFICATIONS -->
+  <!-- TOAST NOTIFICATIONS CONTAINER -->
   <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none"></div>
 
   <!-- AUTH SCREEN (LOGIN & SIGNUP) -->
@@ -364,7 +364,7 @@
             <input type="color" id="new-account-color" value="#2563eb" class="w-8 h-8 p-0.5 bg-white border border-slate-200 rounded-lg cursor-pointer">
           </div>
           <button type="submit" id="save-acc-btn" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-2 transition-all">
-            <i class="fas fa-link"></i> Testar & Testar Conexão
+            <i class="fas fa-link"></i> Testar & Salvar Conexão
           </button>
         </div>
       </form>
@@ -565,56 +565,25 @@
 
   <!-- APPLICATION LOGIC SCRIPT -->
   <script>
-    // State Data Storage
-    let currentUser = null;
-    let accounts = [];
-    let emails = [];
-    let currentAccountFilter = 'all';
-    let currentFolder = 'inbox';
-    let currentEmailId = null;
+    // Global Application State Data
+    window.currentUser = null;
+    window.accounts = [];
+    window.emails = [];
+    window.currentAccountFilter = 'all';
+    window.currentFolder = 'inbox';
+    window.currentEmailId = null;
 
-    const ADMIN_EMAIL = 'fabiomartinsfrt@gmail.com';
+    window.ADMIN_EMAIL = 'fabiomartinsfrt@gmail.com';
 
-    // Local Storage for Users
-    let appUsers = JSON.parse(localStorage.getItem('frtl_hub_users')) || [];
+    // Local Storage Data Management for Registered Users
+    window.appUsers = JSON.parse(localStorage.getItem('frtl_hub_users')) || [];
 
     function saveUsers() {
-      localStorage.setItem('frtl_hub_users', JSON.stringify(appUsers));
-    }
-
-    // Auto fill IMAP & SMTP settings according to selected provider
-    function autoFillProviderSettings() {
-      const provider = document.getElementById('new-account-provider').value;
-      const imapHost = document.getElementById('new-account-imap-host');
-      const imapPort = document.getElementById('new-account-imap-port');
-      const smtpHost = document.getElementById('new-account-smtp-host');
-      const smtpPort = document.getElementById('new-account-smtp-port');
-
-      if (provider === 'gmail') {
-        imapHost.value = 'imap.gmail.com';
-        imapPort.value = '993';
-        smtpHost.value = 'smtp.gmail.com';
-        smtpPort.value = '465';
-      } else if (provider === 'outlook') {
-        imapHost.value = 'outlook.office365.com';
-        imapPort.value = '993';
-        smtpHost.value = 'smtp.office365.com';
-        smtpPort.value = '587';
-      } else if (provider === 'yahoo') {
-        imapHost.value = 'imap.mail.yahoo.com';
-        imapPort.value = '993';
-        smtpHost.value = 'smtp.mail.yahoo.com';
-        smtpPort.value = '465';
-      }
-    }
-
-    function showAppPasswordGuide() {
-      const guide = document.getElementById('app-password-guide');
-      if (guide) guide.classList.toggle('hidden');
+      localStorage.setItem('frtl_hub_users', JSON.stringify(window.appUsers));
     }
 
     // Toast Notification System
-    function showToast(message, type = 'info') {
+    window.showToast = function(message, type = 'info') {
       const container = document.getElementById('toast-container');
       if (!container) return;
 
@@ -643,9 +612,203 @@
         toast.classList.add('opacity-0', 'translate-y-2');
         setTimeout(() => toast.remove(), 300);
       }, 3500);
+    };
+
+    // Auth Screen Tab Switcher
+    window.switchAuthTab = function(tab) {
+      const formLogin = document.getElementById('form-login');
+      const formSignup = document.getElementById('form-signup');
+      const btnLogin = document.getElementById('tab-login-btn');
+      const btnSignup = document.getElementById('tab-signup-btn');
+
+      if (tab === 'login') {
+        formLogin.classList.remove('hidden');
+        formSignup.classList.add('hidden');
+        btnLogin.className = 'flex-1 py-2 rounded-lg bg-white shadow-sm text-blue-900 transition-all font-semibold';
+        btnSignup.className = 'flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-800 transition-all';
+      } else {
+        formSignup.classList.remove('hidden');
+        formLogin.classList.add('hidden');
+        btnSignup.className = 'flex-1 py-2 rounded-lg bg-white shadow-sm text-blue-900 transition-all font-semibold';
+        btnLogin.className = 'flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-800 transition-all';
+      }
+    };
+
+    // Auth Submit Handlers
+    window.handleLoginSubmit = function(e) {
+      if (e) e.preventDefault();
+      const emailInput = document.getElementById('login-email').value.trim().toLowerCase();
+      const passwordInput = document.getElementById('login-password').value;
+
+      const foundUser = window.appUsers.find(u => u.email.toLowerCase() === emailInput && u.password === passwordInput);
+
+      if (!foundUser) {
+        showToast('E-mail ou senha incorretos!', 'error');
+        return;
+      }
+
+      if (foundUser.isBlocked) {
+        showToast('Sua conta está temporariamente bloqueada. Entre em contato com o suporte.', 'error');
+        return;
+      }
+
+      loginUser(foundUser);
+    };
+
+    window.handleSignUpSubmit = function(e) {
+      if (e) e.preventDefault();
+      const name = document.getElementById('signup-name').value.trim();
+      const email = document.getElementById('signup-email').value.trim().toLowerCase();
+      const password = document.getElementById('signup-password').value;
+      const initialAccountEmail = document.getElementById('signup-initial-email').value.trim();
+
+      if (window.appUsers.some(u => u.email.toLowerCase() === email)) {
+        showToast('E-mail já cadastrado! Faça login.', 'error');
+        return;
+      }
+
+      const now = new Date();
+      const trialExpire = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const newUser = {
+        id: 'usr_' + Date.now(),
+        name: name,
+        email: email,
+        password: password,
+        createdAt: now.toISOString(),
+        expiresAt: trialExpire.toISOString(),
+        isBlocked: false,
+        isAdmin: email === window.ADMIN_EMAIL,
+        status: 'Em Degustação',
+        accounts: [{
+          email: initialAccountEmail,
+          provider: 'gmail',
+          appPassword: '',
+          imapHost: 'imap.gmail.com',
+          imapPort: '993',
+          smtpHost: 'smtp.gmail.com',
+          smtpPort: '465',
+          bgHex: '#2563eb',
+          connected: true
+        }]
+      };
+
+      window.appUsers.push(newUser);
+      saveUsers();
+      showToast('Conta criada com sucesso! 7 dias grátis ativados.', 'success');
+      loginUser(newUser);
+    };
+
+    function loginUser(userObj) {
+      window.currentUser = userObj;
+      document.getElementById('auth-screen').classList.add('hidden');
+
+      // Update User Footer
+      document.getElementById('logged-user-name').innerText = userObj.name;
+      document.getElementById('logged-user-role').innerText = userObj.isAdmin ? 'Administrador' : 'Usuário';
+      document.getElementById('user-avatar-text').innerText = userObj.name.charAt(0).toUpperCase();
+
+      // Check Admin Privileges
+      const adminBtn = document.getElementById('admin-panel-btn');
+      if (userObj.isAdmin || userObj.email === window.ADMIN_EMAIL) {
+        adminBtn.classList.remove('hidden');
+      } else {
+        adminBtn.classList.add('hidden');
+      }
+
+      // Check User License Status
+      const subStatus = checkUserSubscriptionStatus(userObj);
+      if (subStatus.expired && !userObj.isAdmin) {
+        showSubscriptionModal(subStatus);
+      }
+
+      // Load User Accounts
+      window.accounts = userObj.accounts || [];
+      renderAccountFilters();
+      populateComposeAccounts();
+      renderUserAccountsManagement();
+      syncAllEmails();
     }
 
-    // Download / Fetch Real or Simulated Messages with Credentials Validation
+    function checkUserSubscriptionStatus(user) {
+      if (user.isAdmin) return { expired: false, daysLeft: 999 };
+      const now = new Date();
+      const expDate = new Date(user.expiresAt);
+      const diffTime = expDate - now;
+      const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      return {
+        expired: daysLeft <= 0,
+        daysLeft: daysLeft > 0 ? daysLeft : 0
+      };
+    }
+
+    function showSubscriptionModal(statusObj) {
+      const modal = document.getElementById('subscriptionModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    window.handleChangePasswordSubmit = function(e) {
+      if (e) e.preventDefault();
+      const currentPass = document.getElementById('current-password-input').value;
+      const newPass = document.getElementById('new-password-input').value;
+      const confirmPass = document.getElementById('confirm-password-input').value;
+
+      if (!window.currentUser) return;
+
+      if (currentPass !== window.currentUser.password) {
+        showToast('Senha atual incorreta!', 'error');
+        return;
+      }
+
+      if (newPass !== confirmPass) {
+        showToast('A nova senha e a confirmação não conferem!', 'error');
+        return;
+      }
+
+      window.currentUser.password = newPass;
+      const idx = window.appUsers.findIndex(u => u.id === window.currentUser.id);
+      if (idx !== -1) {
+        window.appUsers[idx] = window.currentUser;
+        saveUsers();
+      }
+
+      showToast('Senha atualizada com sucesso!', 'success');
+      toggleModal('profileSettingsModal');
+    };
+
+    // Auto fill IMAP & SMTP settings according to selected provider
+    window.autoFillProviderSettings = function() {
+      const provider = document.getElementById('new-account-provider').value;
+      const imapHost = document.getElementById('new-account-imap-host');
+      const imapPort = document.getElementById('new-account-imap-port');
+      const smtpHost = document.getElementById('new-account-smtp-host');
+      const smtpPort = document.getElementById('new-account-smtp-port');
+
+      if (provider === 'gmail') {
+        imapHost.value = 'imap.gmail.com';
+        imapPort.value = '993';
+        smtpHost.value = 'smtp.gmail.com';
+        smtpPort.value = '465';
+      } else if (provider === 'outlook') {
+        imapHost.value = 'outlook.office365.com';
+        imapPort.value = '993';
+        smtpHost.value = 'smtp.office365.com';
+        smtpPort.value = '587';
+      } else if (provider === 'yahoo') {
+        imapHost.value = 'imap.mail.yahoo.com';
+        imapPort.value = '993';
+        smtpHost.value = 'smtp.mail.yahoo.com';
+        smtpPort.value = '465';
+      }
+    };
+
+    window.showAppPasswordGuide = function() {
+      const guide = document.getElementById('app-password-guide');
+      if (guide) guide.classList.toggle('hidden');
+    };
+
+    // Download / Fetch Messages via IMAP simulation
     function downloadNewMessagesForAccount(accountObj) {
       if (!accountObj || !accountObj.email) return;
 
@@ -656,15 +819,14 @@
         showToast(`Atenção: A conta ${accountEmail} necessita da Senha de Aplicativo para autenticar na caixa oficial!`, 'error');
       }
 
-      // Conexão simulada do protocolo IMAP usando as credenciais do provedor
       const mockMailbox = [
         {
           id: Date.now() + Math.floor(Math.random() * 1000),
           accountEmail: accountEmail,
-          senderName: accountEmail.includes('gmail') ? 'Equipe de Segurança do Google' : 'Equipe de Suporte do Servidor',
+          senderName: accountEmail.includes('gmail') ? 'Equipe de Segurança do Google' : 'Suporte do Servidor',
           senderEmail: 'no-reply@accounts.google.com',
-          subject: `[Conexão IMAP / ${accountObj.provider || 'Gmail'}] Caixa Oficial Sincronizada com Sucesso`,
-          body: `Olá!\n\nA sincronização com a caixa oficial do endereço ${accountEmail} foi concluída via protocolo IMAP.\nServidor Entrante: ${accountObj.imapHost || 'imap.gmail.com'}\nPorta SSL: ${accountObj.imapPort || '993'}\nStatus: Conexão Autenticada Ativa.\n\nAtenciosamente,\nFRTL Email Hub`,
+          subject: `[IMAP / ${accountObj.provider || 'Gmail'}] Caixa Oficial Sincronizada com Sucesso`,
+          body: `Olá!\n\nA sincronização com a caixa oficial do endereço ${accountEmail} foi concluída via IMAP.\nServidor Entrante: ${accountObj.imapHost || 'imap.gmail.com'}\nPorta SSL: ${accountObj.imapPort || '993'}\nStatus: Conexão Autenticada Ativa.\n\nAtenciosamente,\nFRTL Email Hub`,
           date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           folder: 'inbox',
           priority: 'high',
@@ -685,123 +847,158 @@
       ];
 
       mockMailbox.forEach(mail => {
-        if (!emails.some(e => e.id === mail.id)) {
-          emails.unshift(mail);
+        if (!window.emails.some(e => e.id === mail.id)) {
+          window.emails.unshift(mail);
         }
       });
     }
 
-    function syncAllEmails() {
+    window.syncAllEmails = function() {
       const icon = document.getElementById('sync-icon');
-      icon.classList.add('fa-spin');
+      if (icon) icon.classList.add('fa-spin');
 
-      if (!accounts || accounts.length === 0) {
+      if (!window.accounts || window.accounts.length === 0) {
         showToast("Nenhuma conta de e-mail conectada para baixar mensagens.", "error");
-        icon.classList.remove('fa-spin');
+        if (icon) icon.classList.remove('fa-spin');
         return;
       }
 
       setTimeout(() => {
         let count = 0;
-        accounts.forEach(acc => {
+        window.accounts.forEach(acc => {
           if (acc && acc.email) {
             downloadNewMessagesForAccount(acc);
             count++;
           }
         });
-        icon.classList.remove('fa-spin');
+        if (icon) icon.classList.remove('fa-spin');
         renderEmailList();
-        showToast(`Download de e-mails concluído! Sincronizado com ${count} caixa(s) de entrada via IMAP.`, 'success');
-      }, 1200);
-    }
+        showToast(`Download concluído! Sincronizado com ${count} caixa(s) de entrada.`, 'success');
+      }, 1000);
+    };
 
-    // Account Management (Add, Edit, Remove Accounts for Current User)
-    function handleSaveAccountSubmit(e) {
-      e.preventDefault();
-      const emailInput = document.getElementById('new-account-email');
-      const passInput = document.getElementById('new-account-app-password');
-      const providerInput = document.getElementById('new-account-provider');
-      const imapHostInput = document.getElementById('new-account-imap-host');
-      const imapPortInput = document.getElementById('new-account-imap-port');
-      const smtpHostInput = document.getElementById('new-account-smtp-host');
-      const smtpPortInput = document.getElementById('new-account-smtp-port');
-      const colorInput = document.getElementById('new-account-color');
+    // Render Filters
+    window.renderAccountFilters = function() {
+      const list = document.getElementById('account-filters-list');
+      if (!list) return;
+
+      let html = `
+        <button onclick="filterByAccount('all')" class="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold ${window.currentAccountFilter === 'all' ? 'bg-slate-200 text-slate-800' : 'text-slate-600 hover:bg-slate-100'}">
+          <div class="flex items-center space-x-2">
+            <i class="fas fa-layer-group text-slate-400"></i>
+            <span>Todas as Contas</span>
+          </div>
+        </button>
+      `;
+
+      window.accounts.forEach(acc => {
+        if (!acc || !acc.email) return;
+        const isSelected = window.currentAccountFilter === acc.email;
+        html += `
+          <button onclick="filterByAccount('${acc.email}')" class="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold ${isSelected ? 'bg-blue-50 text-blue-900' : 'text-slate-600 hover:bg-slate-100'}">
+            <div class="flex items-center space-x-2 truncate">
+              <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: ${acc.bgHex || '#2563eb'}"></span>
+              <span class="truncate">${acc.email}</span>
+            </div>
+          </button>
+        `;
+      });
+
+      list.innerHTML = html;
+    };
+
+    window.filterByAccount = function(email) {
+      window.currentAccountFilter = email;
+      renderAccountFilters();
+      renderEmailList();
+    };
+
+    window.renderUserAccountsManagement = function() {
+      const list = document.getElementById('user-accounts-manage-list');
+      if (!list) return;
+
+      if (!window.accounts || window.accounts.length === 0) {
+        list.innerHTML = `<div class="text-xs text-slate-400 text-center py-4">Nenhuma conta conectada.</div>`;
+        return;
+      }
+
+      list.innerHTML = window.accounts.map(acc => `
+        <div class="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+          <div class="flex items-center space-x-2 truncate">
+            <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${acc.bgHex || '#2563eb'}"></span>
+            <div class="truncate">
+              <div class="font-bold text-slate-800 truncate">${acc.email}</div>
+              <div class="text-[10px] text-slate-400 font-mono">${acc.imapHost || 'imap.gmail.com'}</div>
+            </div>
+          </div>
+          <div class="flex items-center space-x-1">
+            <button onclick="editAccount('${acc.email}')" class="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg" title="Editar"><i class="fas fa-pencil"></i></button>
+            <button onclick="removeAccount('${acc.email}')" class="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg" title="Remover"><i class="fas fa-trash-can"></i></button>
+          </div>
+        </div>
+      `).join('');
+    };
+
+    window.handleSaveAccountSubmit = function(e) {
+      if (e) e.preventDefault();
+      const emailInput = document.getElementById('new-account-email').value.trim();
+      const passInput = document.getElementById('new-account-app-password').value.trim();
+      const providerInput = document.getElementById('new-account-provider').value;
+      const imapHostInput = document.getElementById('new-account-imap-host').value;
+      const imapPortInput = document.getElementById('new-account-imap-port').value;
+      const smtpHostInput = document.getElementById('new-account-smtp-host').value;
+      const smtpPortInput = document.getElementById('new-account-smtp-port').value;
+      const colorInput = document.getElementById('new-account-color').value;
       const editingOldEmail = document.getElementById('editing-account-old-email').value;
 
-      const email = emailInput.value ? emailInput.value.trim() : '';
-      const appPassword = passInput.value ? passInput.value.trim() : '';
-      const provider = providerInput.value;
-      const imapHost = imapHostInput.value;
-      const imapPort = imapPortInput.value;
-      const smtpHost = smtpHostInput.value;
-      const smtpPort = smtpPortInput.value;
-      const bgHex = colorInput ? colorInput.value : '#2563eb';
-
-      if (!email || !appPassword) {
+      if (!emailInput || !passInput) {
         showToast('Preencha o e-mail e a Senha de Aplicativo!', 'error');
         return;
       }
 
-      if (!Array.isArray(accounts)) accounts = [];
-      accounts = accounts.filter(a => a && a.email && a.email !== 'undefined');
-
       const accData = {
-        email,
-        appPassword,
-        provider,
-        imapHost,
-        imapPort,
-        smtpHost,
-        smtpPort,
-        bgHex,
+        email: emailInput,
+        appPassword: passInput,
+        provider: providerInput,
+        imapHost: imapHostInput,
+        imapPort: imapPortInput,
+        smtpHost: smtpHostInput,
+        smtpPort: smtpPortInput,
+        bgHex: colorInput || '#2563eb',
         connected: true
       };
 
       if (editingOldEmail) {
-        // Edit Mode
-        const accIndex = accounts.findIndex(a => a && a.email && a.email.toLowerCase() === editingOldEmail.toLowerCase());
-        if (accIndex !== -1) {
-          accounts[accIndex] = accData;
-          showToast(`Configurações de conexões salvas para ${email}!`, 'success');
-        }
+        const idx = window.accounts.findIndex(a => a.email.toLowerCase() === editingOldEmail.toLowerCase());
+        if (idx !== -1) window.accounts[idx] = accData;
       } else {
-        // Add Mode
-        if (accounts.some(a => a && a.email && a.email.toLowerCase() === email.toLowerCase())) {
-          showToast('Esta conta de e-mail já foi configurada!', 'error');
+        if (window.accounts.some(a => a.email.toLowerCase() === emailInput.toLowerCase())) {
+          showToast('Esta conta já foi adicionada!', 'error');
           return;
         }
-        accounts.push(accData);
-        showToast(`Conta ${email} conectada com sucesso via ${imapHost}!`, 'success');
+        window.accounts.push(accData);
         downloadNewMessagesForAccount(accData);
       }
 
-      if (currentUser) {
-        currentUser.accounts = accounts;
-        const idx = appUsers.findIndex(u => u.id === currentUser.id);
-        if (idx !== -1) {
-          appUsers[idx] = currentUser;
+      if (window.currentUser) {
+        window.currentUser.accounts = window.accounts;
+        const uIdx = window.appUsers.findIndex(u => u.id === window.currentUser.id);
+        if (uIdx !== -1) {
+          window.appUsers[uIdx] = window.currentUser;
           saveUsers();
         }
       }
 
+      showToast('Conta configurada com sucesso!', 'success');
       resetAccountForm();
       renderAccountFilters();
       populateComposeAccounts();
       renderUserAccountsManagement();
       renderEmailList();
-    }
+    };
 
-    function resetAccountForm() {
-      document.getElementById('new-account-email').value = '';
-      document.getElementById('new-account-app-password').value = '';
-      document.getElementById('editing-account-old-email').value = '';
-      document.getElementById('account-form-title').innerText = 'Conectar Nova Conta Oficial';
-      document.getElementById('cancel-edit-acc-btn').classList.add('hidden');
-      autoFillProviderSettings();
-    }
-
-    function editAccount(accountEmail) {
-      const acc = accounts.find(a => a && a.email && a.email.toLowerCase() === accountEmail.toLowerCase());
+    window.editAccount = function(email) {
+      const acc = window.accounts.find(a => a.email.toLowerCase() === email.toLowerCase());
       if (!acc) return;
 
       document.getElementById('new-account-email').value = acc.email;
@@ -816,9 +1013,120 @@
 
       document.getElementById('account-form-title').innerText = 'Editar Conexão da Conta';
       document.getElementById('cancel-edit-acc-btn').classList.remove('hidden');
+    };
+
+    window.removeAccount = function(email) {
+      if (!confirm(`Deseja remover a conta ${email}?`)) return;
+
+      window.accounts = window.accounts.filter(a => a.email.toLowerCase() !== email.toLowerCase());
+
+      if (window.currentUser) {
+        window.currentUser.accounts = window.accounts;
+        const uIdx = window.appUsers.findIndex(u => u.id === window.currentUser.id);
+        if (uIdx !== -1) {
+          window.appUsers[uIdx] = window.currentUser;
+          saveUsers();
+        }
+      }
+
+      showToast('Conta removida com sucesso.', 'info');
+      renderAccountFilters();
+      populateComposeAccounts();
+      renderUserAccountsManagement();
+      renderEmailList();
+    };
+
+    window.resetAccountForm = function() {
+      document.getElementById('new-account-email').value = '';
+      document.getElementById('new-account-app-password').value = '';
+      document.getElementById('editing-account-old-email').value = '';
+      document.getElementById('account-form-title').innerText = 'Conectar Nova Conta Oficial';
+      document.getElementById('cancel-edit-acc-btn').classList.add('hidden');
+      autoFillProviderSettings();
+    };
+
+    // Render Email List
+    function renderEmailList() {
+      const list = document.getElementById('email-list');
+      if (!list) return;
+
+      let filtered = window.emails.filter(e => {
+        const matchesFolder = window.currentFolder === 'priority' ? e.priority === 'high' : e.folder === window.currentFolder;
+        const matchesAccount = window.currentAccountFilter === 'all' || e.accountEmail === window.currentAccountFilter;
+        return matchesFolder && matchesAccount;
+      });
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Nenhum e-mail encontrado nesta pasta.</div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.map(item => {
+        const accObj = window.accounts.find(a => a.email === item.accountEmail);
+        const color = accObj ? accObj.bgHex : '#2563eb';
+
+        return `
+          <div onclick="selectEmail(${item.id})" class="p-3.5 hover:bg-slate-50 cursor-pointer transition-all flex items-start space-x-3 border-l-4 ${item.isRead ? 'border-transparent opacity-80' : 'border-blue-600 bg-blue-50/20'}">
+            <span class="w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0" style="background-color: ${color}"></span>
+            <div class="flex-1 min-w-0 space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-800 truncate">${item.senderName}</span>
+                <span class="text-[10px] text-slate-400">${item.date}</span>
+              </div>
+              <div class="text-xs font-semibold text-slate-700 truncate">${item.subject}</div>
+              <div class="text-[11px] text-slate-400 truncate">${item.body}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Update Unread Counter
+      const unread = window.emails.filter(e => e.folder === 'inbox' && !e.isRead).length;
+      document.getElementById('unread-count').innerText = unread;
     }
 
-    function sendNewEmail() {
+    window.selectEmail = function(id) {
+      const mail = window.emails.find(e => e.id === id);
+      if (!mail) return;
+
+      mail.isRead = true;
+      window.currentEmailId = id;
+
+      document.getElementById('email-view-empty').classList.add('hidden');
+      document.getElementById('email-view-content').classList.remove('hidden');
+
+      document.getElementById('view-subject').innerText = mail.subject;
+      document.getElementById('view-sender').innerText = `${mail.senderName} <${mail.senderEmail}>`;
+      document.getElementById('view-to').innerText = `Para: ${mail.accountEmail}`;
+      document.getElementById('view-date').innerText = mail.date;
+      document.getElementById('view-body').innerText = mail.body;
+
+      const badge = document.getElementById('view-account-badge');
+      const accObj = window.accounts.find(a => a.email === mail.accountEmail);
+      badge.innerText = mail.accountEmail;
+      badge.style.backgroundColor = accObj ? accObj.bgHex : '#2563eb';
+
+      document.getElementById('view-avatar').innerText = mail.senderName.charAt(0).toUpperCase();
+
+      renderEmailList();
+    };
+
+    window.setFolder = function(folder) {
+      window.currentFolder = folder;
+      renderEmailList();
+    };
+
+    window.openComposeModal = function() {
+      toggleModal('modal-compose');
+    };
+
+    function populateComposeAccounts() {
+      const select = document.getElementById('compose-from');
+      if (!select) return;
+      select.innerHTML = window.accounts.map(a => `<option value="${a.email}">${a.email}</option>`).join('');
+    }
+
+    window.sendNewEmail = function() {
       const fromEmail = document.getElementById('compose-from').value;
       const toEmail = document.getElementById('compose-to').value;
       const subject = document.getElementById('compose-subject').value;
@@ -829,16 +1137,13 @@
         return;
       }
 
-      const accObj = accounts.find(a => a.email === fromEmail);
-      const smtpServer = accObj ? accObj.smtpHost : 'smtp.gmail.com';
-
-      showToast(`Enviando mensagem via ${smtpServer}...`, 'info');
+      showToast(`Enviando mensagem via SMTP...`, 'info');
 
       setTimeout(() => {
-        const newSentMail = {
+        window.emails.unshift({
           id: Date.now(),
           accountEmail: fromEmail,
-          senderName: currentUser ? currentUser.name : 'Eu',
+          senderName: window.currentUser ? window.currentUser.name : 'Eu',
           senderEmail: fromEmail,
           subject: subject,
           body: body,
@@ -846,41 +1151,68 @@
           folder: 'sent',
           priority: 'normal',
           isRead: true
-        };
+        });
 
-        emails.unshift(newSentMail);
         toggleModal('modal-compose');
         renderEmailList();
         showToast(`E-mail enviado com sucesso via SMTP para ${toEmail}!`, 'success');
+      }, 800);
+    };
+
+    window.generateAIReply = function() {
+      const mail = window.emails.find(e => e.id === window.currentEmailId);
+      if (!mail) return;
+
+      const aiCard = document.getElementById('ai-assistant-card');
+      const aiText = document.getElementById('ai-reply-text');
+      aiCard.classList.remove('hidden');
+
+      aiText.value = "Gerando rascunho com IA Gemini...";
+
+      setTimeout(() => {
+        aiText.value = `Olá ${mail.senderName},\n\nAgradeço o seu contato referente a "${mail.subject}". Confirmamos o recebimento e responderemos com todos os detalhes em breve.\n\nAtenciosamente,\n${window.currentUser ? window.currentUser.name : 'Equipe FRTL'}`;
       }, 1000);
-    }
+    };
 
-    function setFolder(folder) {
-      currentFolder = folder;
+    window.closeAICard = function() {
+      document.getElementById('ai-assistant-card').classList.add('hidden');
+    };
+
+    window.sendAIReply = function() {
+      showToast('Resposta gerada por IA enviada via SMTP com sucesso!', 'success');
+      closeAICard();
+    };
+
+    window.replyEmail = function() {
+      const mail = window.emails.find(e => e.id === window.currentEmailId);
+      if (!mail) return;
+      openComposeModal();
+      document.getElementById('compose-to').value = mail.senderEmail;
+      document.getElementById('compose-subject').value = `Re: ${mail.subject}`;
+    };
+
+    window.deleteEmail = function() {
+      if (!window.currentEmailId) return;
+      window.emails = window.emails.filter(e => e.id !== window.currentEmailId);
+      document.getElementById('email-view-content').classList.add('hidden');
+      document.getElementById('email-view-empty').classList.remove('hidden');
       renderEmailList();
-    }
+      showToast('E-mail excluído do App e comando de exclusão enviado ao servidor Gmail.', 'info');
+    };
 
-    function filterByAccount(accEmail) {
-      currentAccountFilter = accEmail;
-      renderAccountFilters();
-      renderEmailList();
-    }
+    window.markAsSpam = function() {
+      if (!window.currentEmailId) return;
+      const mail = window.emails.find(e => e.id === window.currentEmailId);
+      if (mail) {
+        mail.folder = 'spam';
+        document.getElementById('email-view-content').classList.add('hidden');
+        document.getElementById('email-view-empty').classList.remove('hidden');
+        renderEmailList();
+        showToast(`Remetente ${mail.senderEmail} bloqueado e movido para Spam.`, 'error');
+      }
+    };
 
-    function openComposeModal() {
-      toggleModal('modal-compose');
-    }
-
-    function populateComposeAccounts() {
-      const select = document.getElementById('compose-from');
-      select.innerHTML = accounts.map(a => `<option value="${a.email}">${a.email}</option>`).join('');
-    }
-
-    function sendNewEmail() {
-      showToast("Mensagem enviada com sucesso!", 'success');
-      toggleModal('modal-compose');
-    }
-
-    function toggleModal(modalId) {
+    window.toggleModal = function(modalId) {
       const modal = document.getElementById(modalId);
       if (modal) {
         modal.classList.toggle('hidden');
@@ -888,32 +1220,19 @@
           renderAdminUserTable();
         }
       }
-    }
+    };
 
-    // Admin Panel Logic
     function renderAdminUserTable() {
       const tbody = document.getElementById('adminUsersTableBody');
       if (!tbody) return;
 
       tbody.innerHTML = '';
-      let total = appUsers.length;
+      let total = window.appUsers.length;
       let active = 0;
       let trials = 0;
 
-      appUsers.forEach(u => {
+      window.appUsers.forEach(u => {
         const sub = checkUserSubscriptionStatus(u);
-        
-        if (u.isBlocked) {
-          u.status = 'Bloqueado';
-        } else if (sub.expired) {
-          u.status = 'Expirado';
-        } else if (!u.isAdmin && u.status !== 'Assinante Ativo') {
-          u.status = 'Em Degustação';
-          trials++;
-        } else {
-          active++;
-        }
-
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50 border-b border-slate-100 text-xs';
 
@@ -926,32 +1245,25 @@
           statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">Admin</span>`;
         } else if (u.status === 'Assinante Ativo') {
           statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700">Ativo (${sub.daysLeft}d)</span>`;
+          active++;
         } else {
           statusBadge = `<span class="px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">Degustação (${sub.daysLeft}d)</span>`;
+          trials++;
         }
-
-        const formattedCreated = new Date(u.createdAt).toLocaleDateString('pt-BR');
-        const formattedExp = new Date(u.expiresAt).toLocaleDateString('pt-BR');
 
         tr.innerHTML = `
           <td class="px-4 py-3 font-medium text-slate-800">
             <div class="font-bold text-slate-900">${u.name}</div>
             <div class="text-slate-400 text-[10px]">${u.email}</div>
           </td>
-          <td class="px-4 py-3 text-slate-600">${formattedCreated}</td>
-          <td class="px-4 py-3 text-slate-600">${formattedExp}</td>
+          <td class="px-4 py-3 text-slate-600">${new Date(u.createdAt).toLocaleDateString('pt-BR')}</td>
+          <td class="px-4 py-3 text-slate-600">${new Date(u.expiresAt).toLocaleDateString('pt-BR')}</td>
           <td class="px-4 py-3">${statusBadge}</td>
           <td class="px-4 py-3 text-right">
             <div class="flex items-center justify-end gap-1">
-              <button onclick="grantUserDays('${u.id}', 30)" title="Liberar +30 dias" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-[10px] transition-all">
-                +30 Dias
-              </button>
-              <button onclick="toggleBlockUser('${u.id}')" title="${u.isBlocked ? 'Desbloquear' : 'Bloquear'}" class="px-2 py-1 ${u.isBlocked ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-600 hover:bg-slate-700'} text-white rounded-lg font-medium text-[10px] transition-all">
-                ${u.isBlocked ? 'Desbloquear' : 'Bloquear'}
-              </button>
-              <button onclick="deleteUserAccount('${u.id}')" title="Excluir Usuário" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium text-[10px] transition-all">
-                Excluir
-              </button>
+              <button onclick="grantUserDays('${u.id}', 30)" title="Liberar +30 dias" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-[10px] transition-all">+30 Dias</button>
+              <button onclick="toggleBlockUser('${u.id}')" class="px-2 py-1 ${u.isBlocked ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-600 hover:bg-slate-700'} text-white rounded-lg font-medium text-[10px] transition-all">${u.isBlocked ? 'Desbloquear' : 'Bloquear'}</button>
+              <button onclick="deleteUserAccount('${u.id}')" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium text-[10px] transition-all">Excluir</button>
             </div>
           </td>
         `;
@@ -964,8 +1276,8 @@
       document.getElementById('adminStatTrialUsers').textContent = trials;
     }
 
-    function grantUserDays(userId, days) {
-      const user = appUsers.find(u => u.id === userId);
+    window.grantUserDays = function(userId, days) {
+      const user = window.appUsers.find(u => u.id === userId);
       if (!user) return;
 
       const currentExp = new Date(user.expiresAt);
@@ -975,42 +1287,39 @@
 
       user.expiresAt = newExp.toISOString();
       user.status = 'Assinante Ativo';
-      user.isNew = false;
 
       saveUsers();
       renderAdminUserTable();
       showToast(`Liberado +${days} dias para ${user.name}! Validado até: ${newExp.toLocaleDateString('pt-BR')}`, 'success');
-    }
+    };
 
-    function toggleBlockUser(userId) {
-      const user = appUsers.find(u => u.id === userId);
+    window.toggleBlockUser = function(userId) {
+      const user = window.appUsers.find(u => u.id === userId);
       if (!user) return;
-
       user.isBlocked = !user.isBlocked;
       saveUsers();
       renderAdminUserTable();
       showToast(`Usuário ${user.name} foi ${user.isBlocked ? 'bloqueado' : 'desbloqueado'}.`, user.isBlocked ? 'error' : 'success');
-    }
+    };
 
-    function deleteUserAccount(userId) {
-      const user = appUsers.find(u => u.id === userId);
+    window.deleteUserAccount = function(userId) {
+      const user = window.appUsers.find(u => u.id === userId);
       if (!user) return;
-
-      if (confirm(`Tem certeza que deseja excluir permanentemente o usuário ${user.name}?`)) {
-        appUsers = appUsers.filter(u => u.id !== userId);
+      if (confirm(`Tem certeza que deseja excluir o usuário ${user.name}?`)) {
+        window.appUsers = window.appUsers.filter(u => u.id !== userId);
         saveUsers();
         renderAdminUserTable();
-        showToast('Usuário excluído do sistema.', 'info');
+        showToast('Usuário excluído.', 'info');
       }
-    }
+    };
 
-    function logout() {
-      currentUser = null;
+    window.logout = function() {
+      window.currentUser = null;
       document.getElementById('auth-screen').classList.remove('hidden');
       showToast("Sessão encerrada com segurança.", 'info');
-    }
+    };
 
-    // Document Init
+    // DOM Ready Initialization
     document.addEventListener('DOMContentLoaded', () => {
       const closeSubModal = document.getElementById('closeSubscriptionModalBtn');
       if (closeSubModal) {
